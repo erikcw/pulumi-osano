@@ -108,8 +108,7 @@ func findRepoRoot(t *testing.T) string {
 	}
 	for {
 		//nolint:gosec // Reads go.mod files in the directories above the test package.
-		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil &&
-			bytes.Contains(data, []byte("module "+providerModule+"\n")) {
+		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && declaresModule(data, providerModule) {
 			return dir
 		}
 		parent := filepath.Dir(dir)
@@ -118,6 +117,17 @@ func findRepoRoot(t *testing.T) string {
 		}
 		dir = parent
 	}
+}
+
+// declaresModule reports whether a go.mod declares module. It compares whole lines with any line
+// ending, so a checkout with CRLF line endings (git autocrlf on Windows) is found too.
+func declaresModule(goMod []byte, module string) bool {
+	for _, line := range bytes.Split(goMod, []byte("\n")) {
+		if string(bytes.TrimSpace(line)) == "module "+module {
+			return true
+		}
+	}
+	return false
 }
 
 func buildProvider(ctx context.Context, t *testing.T, goBin, repoRoot, outDir, version string) string {
