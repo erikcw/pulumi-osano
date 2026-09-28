@@ -39,6 +39,11 @@ jobs:
       # changed lines, so a PR that deletes a guard or a permissions block could add an alert elsewhere
       # that no check sees. The new-alert step compares these full results with the base branch.
       CODEQL_ACTION_DIFF_INFORMED_QUERIES: "false"
+      # sdk/java has no Gradle wrapper, so the Java extractor would fetch the newest Gradle and report
+      # "Required Gradle version not specified" under Tool status. This undocumented autobuilder variable
+      # pins the version it fetches; keep it in step with aqua:gradle/gradle-distributions in .config/mise.toml.
+      # If CodeQL drops the variable, only that warning returns.
+      LGTM_INDEX_GRADLE_VERSION: ${{ matrix.language == 'java-kotlin' && '7.6.6' || '' }}
     strategy:
       fail-fast: false
       matrix:
