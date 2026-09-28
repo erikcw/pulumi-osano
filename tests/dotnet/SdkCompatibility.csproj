@@ -17,6 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../sdk/dotnet/Community.Pulumi.Osano.csproj" />
-    <PackageReference Include="Pulumi" Version="[3.76.1,4.0.0)" />
+    <PackageReference Include="Pulumi" Version="[3.114.0, 4.0.0)" />
   </ItemGroup>
 </Project>
