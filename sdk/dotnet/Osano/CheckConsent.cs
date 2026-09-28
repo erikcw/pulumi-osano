@@ -46,11 +46,17 @@ namespace Community.Pulumi.Osano
         [Input("regionCodeOverride")]
         public string? RegionCodeOverride { get; set; }
 
-        /// <summary>
-        /// The subject ID to check.
-        /// </summary>
         [Input("subjectId", required: true)]
-        public string SubjectId { get; set; } = null!;
+        private string? _subjectId;
+
+        /// <summary>
+        /// The subject ID to check. Secret, because it identifies a person.
+        /// </summary>
+        public string? SubjectId
+        {
+            get => _subjectId;
+            set => _subjectId = value;
+        }
 
         public CheckConsentArgs()
         {
@@ -72,11 +78,21 @@ namespace Community.Pulumi.Osano
         [Input("regionCodeOverride")]
         public Input<string>? RegionCodeOverride { get; set; }
 
-        /// <summary>
-        /// The subject ID to check.
-        /// </summary>
         [Input("subjectId", required: true)]
-        public Input<string> SubjectId { get; set; } = null!;
+        private Input<string>? _subjectId;
+
+        /// <summary>
+        /// The subject ID to check. Secret, because it identifies a person.
+        /// </summary>
+        public Input<string>? SubjectId
+        {
+            get => _subjectId;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _subjectId = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         public CheckConsentInvokeArgs()
         {
@@ -93,7 +109,7 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly bool Exists;
         /// <summary>
-        /// The subject ID that was checked.
+        /// The subject ID that was checked. Secret, because it identifies a person.
         /// </summary>
         public readonly string SubjectId;
 

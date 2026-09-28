@@ -162,21 +162,21 @@ pulumi config set osano:unifiedConsentApiKey --secret
 pulumi config set osano:osanoApiKey --secret
 ```
 
-Or set the `OSANO_UC_API_KEY` and `OSANO_API_KEY` environment variables, for example in CI.
+Or set the `OSANO_UC_API_KEY` and `OSANO_API_KEY` environment variables, for example in CI; they are used only when the stack does not configure the key.
 
 ## Configuration
 
-Provider-level settings (all optional):
+Provider-level settings (all optional). Stack configuration takes precedence over the environment variables, which are used only when the key is unset; the provider warns when both are set and differ:
 
 | Key | Description |
 | --- | --- |
-| `osano:unifiedConsentApiKey` | Unified Consent API key (secret); `OSANO_UC_API_KEY` takes precedence when set |
-| `osano:osanoApiKey` | Customer REST API key for Cookie Consent and subject verification (secret); `OSANO_API_KEY` takes precedence when set |
-| `osano:apiBaseUrl` | Override the Unified Consent API base URL, including any path prefix; defaults to `https://uc.api.osano.com`; `OSANO_API_BASE_URL` takes precedence when set |
-| `osano:customerBaseUrl` | Override the Customer REST API base URL; defaults to `https://api.osano.com` |
-| `osano:requestTimeoutSeconds` | HTTP timeout for Customer REST and Unified Consent calls, default 60 seconds; `OSANO_API_TIMEOUT_SECONDS` takes precedence when valid |
+| `osano:unifiedConsentApiKey` | Unified Consent API key (secret); `OSANO_UC_API_KEY` is used when it is unset |
+| `osano:osanoApiKey` | Customer REST API key (secret) for Cookie Consent, also accepted by subject verification; `OSANO_API_KEY` is used when it is unset |
+| `osano:apiBaseUrl` | Base URL of the Unified Consent API, including any path prefix; defaults to `https://uc.api.osano.com`; `OSANO_API_BASE_URL` is used when it is unset. Must use `https` (`http` only for loopback hosts) |
+| `osano:customerBaseUrl` | Base URL of the Customer REST API; defaults to `https://api.osano.com`; `OSANO_CUSTOMER_BASE_URL` is used when it is unset. Must use `https` (`http` only for loopback hosts) |
+| `osano:requestTimeoutSeconds` | Timeout for each request attempt, 1 to 3600 seconds, default 60; `OSANO_API_TIMEOUT_SECONDS` is used when it is unset |
 
-The deprecated `osano:ucApiKey` and `osano:ucBaseUrl` keys are still read as fallbacks for `unifiedConsentApiKey` and `apiBaseUrl`.
+The deprecated `osano:ucApiKey` and `osano:ucBaseUrl` keys are still read when `unifiedConsentApiKey` and `apiBaseUrl` are unset.
 
 ## Learn more
 

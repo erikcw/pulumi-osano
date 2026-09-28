@@ -16,6 +16,8 @@ env:
   PULUMI_LOCAL_NUGET: ${{ github.workspace }}/nuget
   PYTHONVERSION: "3.11.8"
   JAVAVERSION: "11"
+  # Set by the /run-acceptance-tests command (command-dispatch.yml): the pull request head to test
+  # with the repository's secrets. A fork pull request's own runs never see secrets.
   PR_COMMIT_SHA: ${{ github.event.client_payload.pull_request.head.sha }}
 
 jobs:
@@ -41,13 +43,14 @@ jobs:
     runs-on: ubuntu-latest
     name: prerequisites
     permissions:
-      id-token: write # For ESC secrets.
-      pull-requests: write # For schema check comment.
+      contents: read
+      pull-requests: write # For the schema check comment on same-repository pull requests.
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - id: version
@@ -80,19 +83,26 @@ jobs:
       - if: github.event_name == 'pull_request'
         name: Check Schema is Valid
         shell: bash
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set +e
-          schema-tools compare -r github://api.github.com/${{ github.repository_owner }} -p ${{ env.PROVIDER }} -o ${{ github.event.repository.default_branch }} -n --local-path=provider/cmd/pulumi-resource-${{ env.PROVIDER }}/schema.json 2>&1 | tee schema-check.txt
+          schema-tools compare -r "github://api.github.com/$REPOSITORY_OWNER" -p "$PROVIDER" -o "$DEFAULT_BRANCH" -n --local-path="provider/cmd/pulumi-resource-$PROVIDER/schema.json" 2>&1 | tee schema-check.txt
           status=${PIPESTATUS[0]}
           set -e
-          echo "SCHEMA_CHANGES<<EOF" >> "$GITHUB_ENV"
-          cat schema-check.txt >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
-          exit $status
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A random delimiter keeps a line of the compare output from ending the multiline value early.
+          delimiter="SCHEMA_CHANGES_$(head -c 16 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')"
+          {
+            echo "SCHEMA_CHANGES<<$delimiter"
+            cat schema-check.txt
+            echo "$delimiter"
+          } >> "$GITHUB_ENV"
+          exit "$status"
 
-      - if: always() && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+      # Fork pull requests run with a read-only token, so the comment is posted only for branches of this repository.
+      - if: always() && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
         name: Comment on PR with Details of Schema Check
         uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
         with:
@@ -118,24 +128,16 @@ jobs:
             sdk/java/build.gradle
 
       - name: Tar provider binaries
-        run: tar -zcf ${{ github.workspace }}/bin/provider.tar.gz -C ${{ github.workspace }}/bin/ pulumi-resource-${{ env.PROVIDER }} pulumi-gen-${{ env.PROVIDER }}
+        run: tar -zcf "$GITHUB_WORKSPACE/bin/provider.tar.gz" -C "$GITHUB_WORKSPACE/bin/" "pulumi-resource-$PROVIDER"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pulumi-${{ env.PROVIDER }}-provider.tar.gz
           path: ${{ github.workspace }}/bin/provider.tar.gz
 
       - name: Test Provider Library
         run: make test_provider
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   build_sdks:
     needs: prerequisites
@@ -150,11 +152,14 @@ jobs:
           - go
           - java
     name: build_sdks
+    env:
+      LANGUAGE: ${{ matrix.language }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - id: version
@@ -174,10 +179,10 @@ jobs:
         uses: ./.github/actions/download-provider
 
       - name: Generate SDK
-        run: make generate_${{ matrix.language }}
+        run: make "generate_$LANGUAGE"
 
       - name: Build SDK
-        run: make build_${{ matrix.language }}
+        run: make "build_$LANGUAGE"
 
       - name: Check worktree clean
         uses: pulumi/git-status-check-action@0d90c81496aa8d6a31d9c6a0d6297feea2f54057 # v2.0.0
@@ -193,10 +198,10 @@ jobs:
             sdk/java/build.gradle
 
       - name: Tar SDK folder
-        run: tar -zcf sdk/${{ matrix.language }}.tar.gz -C sdk/${{ matrix.language }} .
+        run: tar -zcf "sdk/$LANGUAGE.tar.gz" -C "sdk/$LANGUAGE" .
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.language }}-sdk.tar.gz
           path: ${{ github.workspace }}/sdk/${{ matrix.language }}.tar.gz
@@ -208,9 +213,10 @@ jobs:
     name: build_examples
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - id: version
@@ -238,15 +244,18 @@ jobs:
       - name: Build examples
         run: make build_examples
 
+  # Runs the read-only live suite against Osano when the OSANO_* secrets exist. Every run of this
+  # workflow, including a fork pull request's, reports success when they are missing.
   acceptance_reads:
     needs: prerequisites
     runs-on: ubuntu-latest
     name: acceptance_reads
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - name: Setup Tools
@@ -279,7 +288,7 @@ jobs:
 
           if (( ${#missing[@]} > 0 )); then
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping acceptance reads; missing secrets: ${missing[*]}"
+            echo "::notice::Skipping the live acceptance reads; missing secrets: ${missing[*]}"
             exit 0
           fi
 
@@ -305,18 +314,16 @@ jobs:
     name: lint
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - name: Setup Tools
         uses: ./.github/actions/setup-tools
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Disarm go:embed directives to enable linters
-        run: git grep -l 'go:embed' -- provider | xargs --no-run-if-empty sed -i 's/go:embed/ goembed/g'
 
       - name: golangci-lint provider pkg
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
@@ -331,9 +338,10 @@ jobs:
     name: pipeline_e2e
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
           ref: ${{ env.PR_COMMIT_SHA || github.ref }}
 
       - name: Setup Tools
@@ -342,27 +350,34 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run pipeline e2e suite
-        env:
-          OSANO_RUN_PIPELINE_E2E: "1"
-        run: go test -tags 'e2e pipeline' -count=1 -timeout 20m -v ./tests/e2e/pipeline/...
+        run: make test_pipeline_e2e
 
+  # The one check to require for merging besides CodeQL: it succeeds only when every job above did.
+  # It reports on pull requests from forks too, unlike a commit status that needs a write token.
   sentinel:
     runs-on: ubuntu-latest
-    name: sentinel
+    name: Sentinel
     needs:
+      - prerequisites
       - build_sdks
       - build_examples
-      - prerequisites
+      - acceptance_reads
       - lint
       - pipeline_e2e
+    permissions:
+      statuses: write
     steps:
-      - name: Mark workflow as successful
+      - name: Mark the checks as passed
+        run: echo "every job passed"
+
+      # A dispatched run tests a pull request head commit the run itself is not attached to, so the
+      # result is posted to that commit as a status.
+      - name: Report the dispatched run on the pull request
+        if: github.event_name == 'repository_dispatch'
         uses: guibranco/github-status-action-v2@77639353504055053524efa7a3719aaf0b731ce9 # v1.2.4
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          context: Sentinel
+          context: Sentinel (live acceptance)
           state: success
-          description: Sentinel checks passed
-          sha: ${{ env.PR_COMMIT_SHA || github.event.pull_request.head.sha || github.sha }}
-    permissions:
-      statuses: write
+          description: The dispatched acceptance run passed
+          sha: ${{ env.PR_COMMIT_SHA }}

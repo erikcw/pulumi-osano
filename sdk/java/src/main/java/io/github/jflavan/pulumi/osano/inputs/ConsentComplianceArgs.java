@@ -12,6 +12,10 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 
+/**
+ * Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+ *
+ */
 public final class ConsentComplianceArgs extends com.pulumi.resources.ResourceArgs {
 
     public static final ConsentComplianceArgs Empty = new ConsentComplianceArgs();

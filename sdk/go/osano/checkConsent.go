@@ -27,14 +27,14 @@ type CheckConsentArgs struct {
 	CountryCodeOverride *string `pulumi:"countryCodeOverride"`
 	// Optional ISO 3166-2 region code Osano uses instead of resolving the caller's IP address.
 	RegionCodeOverride *string `pulumi:"regionCodeOverride"`
-	// The subject ID to check.
+	// The subject ID to check. Secret, because it identifies a person.
 	SubjectId string `pulumi:"subjectId"`
 }
 
 type CheckConsentResult struct {
 	// Whether the subject has given consent in the configuration.
 	Exists bool `pulumi:"exists"`
-	// The subject ID that was checked.
+	// The subject ID that was checked. Secret, because it identifies a person.
 	SubjectId string `pulumi:"subjectId"`
 }
 
@@ -48,7 +48,7 @@ type CheckConsentOutputArgs struct {
 	CountryCodeOverride pulumi.StringPtrInput `pulumi:"countryCodeOverride"`
 	// Optional ISO 3166-2 region code Osano uses instead of resolving the caller's IP address.
 	RegionCodeOverride pulumi.StringPtrInput `pulumi:"regionCodeOverride"`
-	// The subject ID to check.
+	// The subject ID to check. Secret, because it identifies a person.
 	SubjectId pulumi.StringInput `pulumi:"subjectId"`
 }
 
@@ -75,7 +75,7 @@ func (o CheckConsentResultOutput) Exists() pulumi.BoolOutput {
 	return o.ApplyT(func(v CheckConsentResult) bool { return v.Exists }).(pulumi.BoolOutput)
 }
 
-// The subject ID that was checked.
+// The subject ID that was checked. Secret, because it identifies a person.
 func (o CheckConsentResultOutput) SubjectId() pulumi.StringOutput {
 	return o.ApplyT(func(v CheckConsentResult) string { return v.SubjectId }).(pulumi.StringOutput)
 }

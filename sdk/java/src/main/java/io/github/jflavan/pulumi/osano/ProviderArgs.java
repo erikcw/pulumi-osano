@@ -17,14 +17,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     public static final ProviderArgs Empty = new ProviderArgs();
 
     /**
-     * Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+     * Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     @Import(name="apiBaseUrl")
     private @Nullable Output<String> apiBaseUrl;
 
     /**
-     * @return Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+     * @return Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     public Optional<Output<String>> apiBaseUrl() {
@@ -32,14 +32,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Override base URL for the Customer REST API (default: https://api.osano.com).
+     * Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     @Import(name="customerBaseUrl")
     private @Nullable Output<String> customerBaseUrl;
 
     /**
-     * @return Override base URL for the Customer REST API (default: https://api.osano.com).
+     * @return Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     public Optional<Output<String>> customerBaseUrl() {
@@ -47,14 +47,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+     * Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
      *
      */
     @Import(name="osanoApiKey")
     private @Nullable Output<String> osanoApiKey;
 
     /**
-     * @return Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+     * @return Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
      *
      */
     public Optional<Output<String>> osanoApiKey() {
@@ -62,14 +62,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+     * Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
      *
      */
     @Import(name="requestTimeoutSeconds", json=true)
     private @Nullable Output<Integer> requestTimeoutSeconds;
 
     /**
-     * @return HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+     * @return Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
      *
      */
     public Optional<Output<Integer>> requestTimeoutSeconds() {
@@ -77,7 +77,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+     * Former name of unifiedConsentApiKey, read only when that key is unset.
      *
      * @deprecated
      * use unifiedConsentApiKey instead
@@ -88,7 +88,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     private @Nullable Output<String> ucApiKey;
 
     /**
-     * @return Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+     * @return Former name of unifiedConsentApiKey, read only when that key is unset.
      *
      * @deprecated
      * use unifiedConsentApiKey instead
@@ -100,7 +100,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+     * Former name of apiBaseUrl, read only when apiBaseUrl is unset.
      *
      * @deprecated
      * use apiBaseUrl instead
@@ -111,7 +111,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     private @Nullable Output<String> ucBaseUrl;
 
     /**
-     * @return Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+     * @return Former name of apiBaseUrl, read only when apiBaseUrl is unset.
      *
      * @deprecated
      * use apiBaseUrl instead
@@ -123,14 +123,14 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
     }
 
     /**
-     * Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+     * Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
      *
      */
     @Import(name="unifiedConsentApiKey")
     private @Nullable Output<String> unifiedConsentApiKey;
 
     /**
-     * @return Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+     * @return Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
      *
      */
     public Optional<Output<String>> unifiedConsentApiKey() {
@@ -168,7 +168,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param apiBaseUrl Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+         * @param apiBaseUrl Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
          *
          * @return builder
          *
@@ -179,7 +179,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param apiBaseUrl Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+         * @param apiBaseUrl Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
          *
          * @return builder
          *
@@ -189,7 +189,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param customerBaseUrl Override base URL for the Customer REST API (default: https://api.osano.com).
+         * @param customerBaseUrl Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
          *
          * @return builder
          *
@@ -200,7 +200,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param customerBaseUrl Override base URL for the Customer REST API (default: https://api.osano.com).
+         * @param customerBaseUrl Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
          *
          * @return builder
          *
@@ -210,7 +210,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param osanoApiKey Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+         * @param osanoApiKey Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
          *
          * @return builder
          *
@@ -221,7 +221,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param osanoApiKey Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+         * @param osanoApiKey Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
          *
          * @return builder
          *
@@ -231,7 +231,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param requestTimeoutSeconds HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+         * @param requestTimeoutSeconds Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
          *
          * @return builder
          *
@@ -242,7 +242,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param requestTimeoutSeconds HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+         * @param requestTimeoutSeconds Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
          *
          * @return builder
          *
@@ -252,7 +252,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param ucApiKey Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+         * @param ucApiKey Former name of unifiedConsentApiKey, read only when that key is unset.
          *
          * @return builder
          *
@@ -267,7 +267,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param ucApiKey Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+         * @param ucApiKey Former name of unifiedConsentApiKey, read only when that key is unset.
          *
          * @return builder
          *
@@ -281,7 +281,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param ucBaseUrl Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+         * @param ucBaseUrl Former name of apiBaseUrl, read only when apiBaseUrl is unset.
          *
          * @return builder
          *
@@ -296,7 +296,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param ucBaseUrl Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+         * @param ucBaseUrl Former name of apiBaseUrl, read only when apiBaseUrl is unset.
          *
          * @return builder
          *
@@ -310,7 +310,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param unifiedConsentApiKey Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+         * @param unifiedConsentApiKey Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
          *
          * @return builder
          *
@@ -321,7 +321,7 @@ public final class ProviderArgs extends com.pulumi.resources.ResourceArgs {
         }
 
         /**
-         * @param unifiedConsentApiKey Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+         * @param unifiedConsentApiKey Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
          *
          * @return builder
          *

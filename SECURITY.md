@@ -63,18 +63,20 @@ When reporting a vulnerability, please include:
 
 This provider implements several security measures:
 
-- **TLS 1.2+**: API calls use HTTPS with Go's default TLS client configuration, which requires TLS 1.2 or higher
-- **No Default Request-Body Logging**: Sensitive payloads are not logged by the provider by default
+- **TLS 1.2+**: API calls use HTTPS with Go's default TLS client configuration, which requires TLS 1.2 or higher. A base URL must use `https` (plain `http` is accepted only for loopback hosts), and the client does not follow redirects, so an API key is never sent to another host
+- **Personal data is secret**: subject identifiers, contact details, consent records, and profiles are marked secret in the schema, so Pulumi encrypts them in state and masks them in output; see [docs/SECURITY_ANALYSIS.md](docs/SECURITY_ANALYSIS.md)
+- **No Default Request-Body Logging**: Sensitive payloads are not logged by the provider by default, error messages never contain the request path, and errors from the subject verification routes withhold the response body
 - **Input Validation**: Resource inputs are validated before API calls; invokes check that required inputs are present
+- **Dependency updates**: every third-party GitHub Action is pinned to a commit SHA, and Dependabot proposes updates for GitHub Actions, Go modules, npm, NuGet, pip, and the devcontainer
 - **SBOMs**: every provider archive on the GitHub release has a `.sbom.json` SBOM.
 - **Build provenance (SLSA Build Level 2)**: every provider archive and SBOM on the GitHub release has a GitHub build provenance attestation (`gh attestation verify pulumi-resource-osano-vX.Y.Z-linux-amd64.tar.gz --owner jflavan`) and a SHA-256 checksum in `checksums.txt`.
 - **Package provenance and signatures** (see [docs/PUBLISHING.md](docs/PUBLISHING.md) to verify each one):
   - PyPI: published with trusted publishing from `release.yml`, with PyPI publish attestations for the wheel and sdist.
   - npm: `0.1.0` was published by hand from the CI-built package and has no provenance statement. Later versions are published with trusted publishing from `release.yml`, with npm provenance. Registry signatures verify with `npm audit signatures`.
-  - NuGet: published from `release.yml` with NuGet trusted publishing (a short-lived OIDC login, no stored API key).
+  - NuGet: published from `release.yml` with NuGet trusted publishing (a short-lived OIDC login, no stored API key). From `0.3.0`, the package also has a GitHub build provenance attestation (`gh attestation verify community.pulumi.osano.X.Y.Z.nupkg --owner jflavan`).
   - Maven Central: every artifact is signed with the release signing key `5277 E261 0B7E 7021 6871  969A 4809 7CF9 4C3F 74F3`.
   - Go: module checksums are recorded in the Go checksum database (`sum.golang.org`).
-- **Code Scanning**: GitHub CodeQL (`security-extended` queries) analyzes the Go provider, the generated Go, Node.js, and Python SDKs, the Python and TypeScript code, and the GitHub Actions workflows on every pull request to `main`, every push to `main`, and weekly. Pull requests that introduce a new CodeQL alert cannot be merged
+- **Code Scanning**: GitHub CodeQL (`security-extended` queries) analyzes the Go provider, the generated Go, Node.js, Python, .NET, and Java SDKs, the Python, TypeScript, and C# code, and the GitHub Actions workflows on every pull request to `main`, every push to `main`, and weekly. Pull requests that introduce a new CodeQL alert cannot be merged
 
 ## Acknowledgments
 

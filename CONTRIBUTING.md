@@ -31,7 +31,7 @@ To run an example against Osano from your clone, build and install the local pro
 - Go (the `go.mod` toolchain, currently go1.27.1, installed by mise; the module requires Go 1.26.6 or later)
 - Node.js 24.x (mise currently pins 24.13.0)
 - Python 3.11
-- .NET 10 SDK (mise pins 10.0.401; it also builds the .NET 8 targets)
+- .NET 10 SDK (mise pins 10.0.401; it builds the `net8.0` SDK and the .NET 8 and .NET 10 compatibility targets)
 - Java 11+
 - Gradle 7.6 (installed by `mise install`; used by `make build_java`)
 - Pulumi CLI + pulumictl (installed by `mise install`; the CLI version follows `github.com/pulumi/pulumi/pkg/v3` in `go.mod`, currently 3.264.0)
@@ -48,18 +48,21 @@ To run an example against Osano from your clone, build and install the local pro
 
 ### Adding or Updating Resources / Functions
 
-1. Implement the resource/invoke in a dedicated `provider/<name>.go` file (for example `consent_resource.go` or `cookie_consent_rule.go`), or in `provider/functions.go` (Unified Consent) or `provider/cookie_consent_functions.go` (Cookie Consent) for invokes, using the existing implementations as a reference. Describe every input and output with `Annotate`; `provider/schema_test.go` fails otherwise.
+1. Implement the resource/invoke in a dedicated `provider/<name>.go` file (for example `unified_consent_resource.go` or `cookie_consent_rule.go`), or in `provider/unified_consent_functions.go` (Unified Consent) or `provider/cookie_consent_functions.go` (Cookie Consent) for invokes, using the existing implementations as a reference. Send every request through the shared client in `provider/internal/osano` (`customerClient(ctx)` for the Customer REST API, `newAPIClient(ctx)` for Unified Consent), which applies the retry policy, timeouts, and error redaction. Describe every input and output with `Annotate`, and mark personal data `provider:"secret"`; `provider/schema_test.go` fails otherwise.
 2. Add or update unit tests (mock HTTP recommended).
 3. Run `make codegen`.
 4. Add/refresh examples (see [EXAMPLES.md](EXAMPLES.md)). At minimum provide a TypeScript example and README; multi-language samples are encouraged for widely used functionality.
 5. Run validation:
    ```bash
-   make lint
-   make test_provider
+   make lint                # make lint_fix applies the fixable findings
+   make test_provider       # RACE= on a toolchain without cgo
    make build_examples
    make test_e2e_compile
+   make test_scripts
    make test_pipeline_e2e   # needs the Pulumi CLI; no credentials
    ```
+
+   `make test_all` runs the tests, the e2e compilation, the script tests, and the pipeline suite in one go.
 6. Document behavior changes in `docs/` and/or `README.md` as appropriate. The package registries show a README written for their own language, not `README.md`: `make codegen` copies `docs/package-readmes/nodejs.md`, `python.md`, `dotnet.md`, and `go.md` byte for byte to `sdk/nodejs/README.md`, `sdk/python/README.md`, `sdk/dotnet/README.md`, and `sdk/go/osano/README.md` (npm, PyPI, NuGet, and pkg.go.dev). When a change affects what users of a package see, update the matching files in `docs/package-readmes/` too, keeping their code samples in that language. Then run `make codegen` or copy them to the SDK folders in the same commit, or the CI worktree-clean check and `make test_scripts` fail.
 
 ### Important Make Targets
@@ -70,12 +73,17 @@ To run an example against Osano from your clone, build and install the local pro
 | `make provider` | Build only the provider binary |
 | `make build` | Build provider **and** SDKs |
 | `make test_provider` | Run Go unit tests (mocked HTTP, no tokens needed) |
-| `make lint` | Run golangci-lint with repo defaults (uses `--fix`, so review the rewritten files) |
+| `make lint` | Run golangci-lint with repo defaults; it never rewrites files |
+| `make lint_fix` | Apply the fixable golangci-lint findings, then review the rewritten files |
 | `make build_cookie_consent_examples` | Compile the canonical C# and companion TypeScript CMP examples without contacting Osano |
 | `make build_examples` | Compile the Cookie Consent examples and the Go quickstart |
 | `make test_e2e_compile` | Vet every `tests/e2e` build-tag set without credentials |
 | `make test_pipeline_e2e` | Run the provider through real `pulumi` CLI operations against a mock Osano API (no credentials; see [tests/README.md](tests/README.md)) |
 | `make test_scripts` | Run the Python tests for the SDK post-processing scripts |
+| `make test_all` | Run the tests, the e2e compilation, the script tests, and the pipeline suite |
+| `make vulncheck` | Run `govulncheck` against the provider's dependencies |
+
+`make test_provider` passes `-race`, which needs cgo; set `RACE=` (`make test_provider RACE=`) on a toolchain without it.
 
 ### Commit Message Guidance
 
@@ -92,15 +100,15 @@ Add `BREAKING CHANGE:` in the footer for breaking API or behavior updates.
 
 - [ ] `mise install` run at least once locally
 - [ ] `make codegen` run after provider edits
-- [ ] Tests (`make test_provider`) pass locally
-- [ ] Docs/examples updated when behavior changes
+- [ ] Tests (`make test_provider`) and lint (`make lint`) pass locally
+- [ ] Docs/examples updated when behavior changes, including `CHANGELOG.md` and, for a user-visible change, `docs/package-readmes/`
 - [ ] PR description covers *what*, *why*, and *how tested*
 - [ ] Linked issues (if any) referenced in the PR body
-- [ ] `CodeQL gate` and `Code scanning results / CodeQL` pass (both are required to merge)
+- [ ] `CodeQL gate`, `Code scanning results / CodeQL`, and the acceptance workflow's `Sentinel` job pass (required to merge)
 
 ### Code Scanning (CodeQL)
 
-`.github/workflows/codeql.yml` (**CodeQL Advanced**) runs CodeQL with the `security-extended` queries on every pull request to `main`, every push to `main`, weekly, and on demand from the Actions tab. It needs no secrets, so fork pull requests get the same checks once a maintainer approves a first-time contributor's run. It analyzes the GitHub Actions workflows and composite actions, the non-test Go code in all three Go modules, the Python scripts, example, and SDK, and the TypeScript examples and Node.js SDK. The generated C# and Java SDKs, the C# example, and Go `_test.go` files (including the build-tagged e2e tests) are not scanned.
+`.github/workflows/codeql.yml` (**CodeQL Advanced**) runs CodeQL with the `security-extended` queries on every pull request to `main`, every push to `main`, weekly, and on demand from the Actions tab. It needs no secrets, so fork pull requests get the same checks once a maintainer approves a first-time contributor's run. It analyzes the GitHub Actions workflows and composite actions, the non-test Go code in all three Go modules, the Python scripts, example, and SDK, the TypeScript examples and Node.js SDK, the C# example, compatibility project, and SDK, and the Java SDK (C# and Java without a build). Go `_test.go` files, including the build-tagged e2e tests, are not scanned.
 
 - Pull requests are analyzed in full, not only on the lines they change, so an alert that a pull request causes elsewhere (for example by deleting a guard or a `permissions:` block) is found too.
 - On a pull request, `Analyze (<language>)` fails when the pull request introduces a CodeQL alert of any severity: an open alert with no counterpart, by rule, file, and message, that is open or dismissed on `main`. Each counterpart matches one alert, so a second copy of an existing problem still fails. The job annotates each new alert and lists them in the job summary. Until `main` has an analysis for a language, only alerts on lines the pull request changes count. The job also fails when the analysis itself fails, for example during tool setup or upload, or when no Go module can be extracted. Pushes to `main` and scheduled runs never fail because of alerts; their alerts go to the Security and quality tab.
@@ -113,6 +121,14 @@ Add `BREAKING CHANGE:` in the footer for breaking API or behavior updates.
 - To dismiss a false positive, go to **Security and quality > Code scanning**, dismiss the alert with a reason, then use **Re-run failed jobs** on the pull request's CodeQL run. Inline suppression comments (`codeql[...]`, `lgtm`) have no effect in this setup for any language. For an alert in `sdk/`, fix the provider or schema and run `make codegen`. Never hand-edit generated files.
 - Keep code scanning "default setup" disabled in the repository settings. Do not rename the workflow file, the `analyze` job, the `CodeQL gate` job, the matrix languages, or the `/language:<language>` categories. Renaming `CodeQL gate` also requires updating the ruleset, or every pull request waits for a check that never reports. If one is renamed, run the workflow on `main` (**Actions > CodeQL Advanced > Run workflow**) and delete the old configuration under **Security and quality > Code scanning > Tool status**. Until then, pull requests show a neutral "configuration not found" result.
 - Actions are pinned to commit SHAs. To upgrade CodeQL, move `github/codeql-action/init` and `github/codeql-action/analyze` to the same new release commit in one change, and update the `# vX.Y.Z` comments.
+
+## CI workflows
+
+The workflows under `.github/workflows/` are maintained by hand. Every third-party action is pinned to a commit SHA with a `# vX.Y.Z` comment, and Dependabot proposes updates for the actions and for every package ecosystem in the repository (Go modules, npm, NuGet, pip, and the devcontainer). Checkouts do not persist credentials, and test jobs run without a `GITHUB_TOKEN`.
+
+- `run-acceptance-tests.yml` runs on every pull request: codegen and the worktree-clean check, the provider tests, the SDK matrix build, the examples and e2e compilation, lint, the engine-level pipeline suite, and the read-only acceptance suite when the repository secrets exist. Its `Sentinel` job is the single status that requires all of them. A pull request from a fork has no secrets, so `acceptance_reads` skips itself and reports success. A maintainer can comment `/run-acceptance-tests` on such a pull request to run the workflow with the repository secrets against the pull request's head commit (`command-dispatch.yml`): review the pull request's changes to the workflows, `.github/scripts/`, the Makefile, and `scripts/` first, because the dispatched run executes them with those secrets.
+- `build.yml` runs the same checks on every push to `main`, and `release.yml` on a `vX.Y.Z` tag; its `verify` job (lint, e2e compilation, script tests, and the pipeline suite) must pass before anything is published.
+- `codeql.yml` is described in [Code Scanning](#code-scanning-codeql). `claude.yml` and `claude-code-review.yml` run only when the `CLAUDE_ENABLED` repository variable is `true`.
 
 ## Examples
 
@@ -131,18 +147,22 @@ A maintainer releases by pushing a `vX.Y.Z` tag. That runs `.github/workflows/re
 
 ```
 provider/           Go provider implementation (hand-written)
+provider/internal/  The shared Osano HTTP client (retries, timeouts, error redaction)
 provider/cmd/       Provider binary + embedded schema
 sdk/                Generated language SDKs (never edit manually)
 examples/           Pulumi programs that double as docs
-docs/               Guides, the release guide and checklist, PUBLISHING.md, and pages for a future Pulumi Registry listing (_index.md, installation-configuration.md)
+tests/              Live and engine-level e2e suites, and the .NET compatibility project
+scripts/            SDK post-processing scripts and their tests, and the toolchain version script
+docs/               Guides, the release guide and checklist, PUBLISHING.md, pages for a future Pulumi Registry listing (_index.md, installation-configuration.md), and design records (docs/design)
 assets/             Package logo (the schema's logoUrl and the NuGet icon)
+.github/            Workflows, the scripts they run, issue templates, and Dependabot configuration
 CHANGELOG.md        Release notes (Keep a Changelog)
 ```
 
 ## Tooling Notes
 
 - Follow the patterns documented in `.github/copilot-instructions.md` when using GitHub Copilot / GPT-based agents.
-- Run `mise doctor` if you encounter CLI version issues.
+- The toolchain is pinned in `.config/mise.toml`; run `mise doctor` if you encounter CLI version issues.
 - Pulumi home is pinned to `.pulumi`; do not delete unless you know the impact.
 
 ## Getting Help

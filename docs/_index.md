@@ -278,15 +278,15 @@ public class App {
 
 ## Configuration
 
-Every setting is optional at the provider level. Each resource and function needs the API key for the Osano API it calls: Cookie Consent resources and functions need `osanoApiKey`; the `sendSubjectCode` and `verifySubjectCode` functions send every configured key and need either `osanoApiKey` or `unifiedConsentApiKey`; the `Consent` resource and the other Unified Consent functions need `unifiedConsentApiKey`. Where an environment variable is listed, it takes precedence over the Pulumi configuration value when it is set.
+Every setting is optional at the provider level. Each resource and function needs the API key for the Osano API it calls: Cookie Consent resources and functions need `osanoApiKey`; the `sendSubjectCode` and `verifySubjectCode` functions send every configured key and need either `osanoApiKey` or `unifiedConsentApiKey`; the `Consent` resource and the other Unified Consent functions need `unifiedConsentApiKey`. Where an environment variable is listed, it is used when the Pulumi configuration value is unset; the stack configuration takes precedence, and the provider warns when both are set and differ.
 
 - `osanoApiKey` (Optional, Secret) — Osano Customer REST API key, sent as `x-osano-api-key`. Used by Cookie Consent resources and functions and by the `sendSubjectCode` and `verifySubjectCode` functions. May also be set with the `OSANO_API_KEY` environment variable.
 - `unifiedConsentApiKey` (Optional, Secret) — Unified Consent API key, sent as `x-uc-api-key`. Used by the `Consent` resource and the Unified Consent read functions. May also be set with the `OSANO_UC_API_KEY` environment variable.
-- `apiBaseUrl` (Optional) — Base URL of the Unified Consent API, including any path prefix. Defaults to `https://uc.api.osano.com`. May also be set with the `OSANO_API_BASE_URL` environment variable.
-- `customerBaseUrl` (Optional) — Base URL of the Customer REST API. Defaults to `https://api.osano.com`.
-- `requestTimeoutSeconds` (Optional) — HTTP request timeout, in seconds, for Customer REST API and Unified Consent calls. Defaults to `60`. May also be set with the `OSANO_API_TIMEOUT_SECONDS` environment variable, which is used only when it is a positive integer.
-- `ucApiKey` (Optional, Secret, Deprecated) — Former name of `unifiedConsentApiKey`, read only when `unifiedConsentApiKey` and `OSANO_UC_API_KEY` are not set. Use `unifiedConsentApiKey` instead.
-- `ucBaseUrl` (Optional, Deprecated) — Former name of `apiBaseUrl`, read only when `apiBaseUrl` and `OSANO_API_BASE_URL` are not set. Use `apiBaseUrl` instead.
+- `apiBaseUrl` (Optional) — Base URL of the Unified Consent API, including any path prefix. Defaults to `https://uc.api.osano.com`. Must use `https`, except for loopback hosts. May also be set with the `OSANO_API_BASE_URL` environment variable.
+- `customerBaseUrl` (Optional) — Base URL of the Customer REST API. Defaults to `https://api.osano.com`. Must use `https`, except for loopback hosts. May also be set with the `OSANO_CUSTOMER_BASE_URL` environment variable.
+- `requestTimeoutSeconds` (Optional) — Timeout, in seconds, for each HTTP request attempt to the Osano APIs, from 1 to 3600. Defaults to `60`. May also be set with the `OSANO_API_TIMEOUT_SECONDS` environment variable, which is ignored with a warning when it is not a whole number in that range.
+- `ucApiKey` (Optional, Secret, Deprecated) — Former name of `unifiedConsentApiKey`, read only when `unifiedConsentApiKey` is not set. Use `unifiedConsentApiKey` instead.
+- `ucBaseUrl` (Optional, Deprecated) — Former name of `apiBaseUrl`, read only when `apiBaseUrl` is not set. Use `apiBaseUrl` instead.
 
 See [Installation & Configuration](https://www.pulumi.com/registry/packages/osano/installation-configuration/) for configuration examples.
 
@@ -297,7 +297,7 @@ See [Installation & Configuration](https://www.pulumi.com/registry/packages/osan
 | `CookieConsentConfig` | A Cookie Consent (CMP) configuration: name, domains, mode, and configuration object. |
 | `CookieConsentRule` | A cookie, script, iframe, or localStorage classification rule in a configuration. |
 | `CookieConsentPublication` | Publishes a configuration when its `changeToken` changes and exports `scriptSrc` and `scriptTag`. |
-| `Consent` | Submits a Unified Consent decision for a subject. |
+| `Consent` | Submits a Unified Consent decision for a subject. The subject is a secret. |
 
 | Function | Purpose |
 | --- | --- |
@@ -306,8 +306,8 @@ See [Installation & Configuration](https://www.pulumi.com/registry/packages/osan
 | `getCookieConsentRules` | Lists a configuration's rules, with the rule IDs used for import. |
 | `getCookieConsentDiscoveries` | Lists the cookies, scripts, iframes, or localStorage keys Osano discovered for a configuration. |
 | `getCookieConsentAuditLog` | Queries configuration, rule, and publication events. |
-| `getUnifiedConsent`, `checkConsent`, `getConsentProfile` | Read a subject's consent state. |
-| `getSubject`, `getSubjectProfile`, `getSession` | Resolve subject identifiers, profiles, and sessions. Profile data is returned as secrets. |
+| `getUnifiedConsent`, `checkConsent`, `getConsentProfile` | Read a subject's consent state. The subject identifiers and consent records are secrets. |
+| `getSubject`, `getSubjectProfile`, `getSession` | Resolve subject identifiers, profiles, and sessions. The identifiers and profile data are secrets. |
 | `getConfig`, `getCollections`, `getCollection` | Read the Unified Consent configuration and privacy protocol collections. |
 | `sendSubjectCode`, `verifySubjectCode` | Send and verify a subject-profile code by email or SMS. |
 
@@ -319,6 +319,7 @@ Pulumi runs functions on every preview, update, and refresh. That suits the read
 - `keepUnclassifiedTattles` defaults to `true`, so publishing does not delete unclassified discoveries. `webhookUrl` is stored as a secret, because Osano calls it without authentication.
 - The script URL never changes between revisions. Osano's CDN can take up to 15 minutes to serve a new revision, browsers cache `osano.js` for up to 24 hours, and the URL returns `403` until the configuration is first published.
 - `CookieConsentConfig` checks the `configuration` object against Osano's published schema during `pulumi preview`, and `pulumi refresh` compares only the configuration keys your program declares, including inside nested objects such as `palette`.
+- A `CookieConsentRule` update changes only the fields the program sets or has set before, so a value set in the Osano dashboard for a field the program never set stays as it is. A `configuration` key removed from a `CookieConsentConfig` is cleared in Osano on the next update.
 - Deleting a `CookieConsentRule` deletes the rule in Osano. Osano has no delete or unpublish endpoint for configurations, so deleting a `CookieConsentConfig` or `CookieConsentPublication` only removes it from Pulumi state, and the configuration and its published script stay live.
-- Consent records are immutable in Osano. Destroying a `Consent` resource removes it from Pulumi state only.
+- Consent records are immutable in Osano. Destroying a `Consent` resource removes it from Pulumi state only, `pulumi refresh` never removes or resubmits one (it warns when Osano no longer reports consent for the subject), and a `Consent` cannot be imported.
 - Import configurations and publications with the Osano config ID, and rules with the composite ID `<configId>/<ruleId>`. Imports only read; an imported publication republishes once when your program applies its own `changeToken`.

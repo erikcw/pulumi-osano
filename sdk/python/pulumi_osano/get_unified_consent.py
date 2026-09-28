@@ -41,7 +41,7 @@ class GetUnifiedConsentResult:
     @pulumi.getter
     def conflicts(self) -> Sequence[Mapping[str, Any]]:
         """
-        Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+        Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
         """
         return pulumi.get(self, "conflicts")
 
@@ -57,7 +57,7 @@ class GetUnifiedConsentResult:
     @pulumi.getter(name="subjectRef")
     def subject_ref(self) -> _builtins.str:
         """
-        The subject reference that was looked up.
+        The subject reference that was looked up. Secret, because it identifies a person.
         """
         return pulumi.get(self, "subject_ref")
 
@@ -65,7 +65,7 @@ class GetUnifiedConsentResult:
     @pulumi.getter(name="unifiedConsent")
     def unified_consent(self) -> Mapping[str, Any]:
         """
-        The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+        The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject's IP address and user agent.
         """
         return pulumi.get(self, "unified_consent")
 

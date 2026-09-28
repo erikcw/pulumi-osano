@@ -140,6 +140,34 @@ func TestCookieConsentConfigDiff(t *testing.T) {
 		assertDiffKind(t, resp, "mode", p.Update)
 	})
 
+	t.Run("changed domains", func(t *testing.T) {
+		state := baseConfigState()
+		inputs := baseConfigArgs()
+		inputs.Domains = []string{"shop.example.com"}
+		resp, err := resource.Diff(ctx, infer.DiffRequest[CookieConsentConfigArgs, CookieConsentConfigState]{
+			State:  state,
+			Inputs: inputs,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertDiffKind(t, resp, "domains", p.Update)
+	})
+
+	t.Run("changed orgIds", func(t *testing.T) {
+		state := baseConfigState()
+		inputs := baseConfigArgs()
+		inputs.OrgIDs = []string{"org-123", "org-456"}
+		resp, err := resource.Diff(ctx, infer.DiffRequest[CookieConsentConfigArgs, CookieConsentConfigState]{
+			State:  state,
+			Inputs: inputs,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertDiffKind(t, resp, "orgIds", p.Update)
+	})
+
 	t.Run("changed configuration key", func(t *testing.T) {
 		state := baseConfigState()
 		inputs := baseConfigArgs()

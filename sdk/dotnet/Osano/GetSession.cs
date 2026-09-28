@@ -89,7 +89,7 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly ImmutableDictionary<string, object> Profile;
         /// <summary>
-        /// The verified ID of the session's subject.
+        /// The verified ID of the session's subject. Secret, because it identifies a person.
         /// </summary>
         public readonly string VerifiedId;
 

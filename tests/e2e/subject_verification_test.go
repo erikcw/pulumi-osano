@@ -4,48 +4,43 @@ package e2e
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/jflavan/pulumi-osano/tests/e2e/internal/api"
+	"github.com/pulumi/pulumi/sdk/v3/go/property"
+
 	"github.com/jflavan/pulumi-osano/tests/e2e/internal/testenv"
 )
 
+// TestSendAndVerifySubjectCode runs the sendSubjectCode and verifySubjectCode functions against
+// Osano. The provider sends every configured key on these routes, so the Unified Consent key alone
+// is enough; OSANO_API_KEY is sent too when it is set.
 func TestSendAndVerifySubjectCode(t *testing.T) {
 	testenv.RequireOptIn(t, testenv.EnvRunSubjectE2E, "enable subject verification tests")
-
-	client, err := api.NewClientFromEnv(true)
-	if err != nil {
-		t.Fatalf("unable to initialize API client: %v", err)
-	}
+	server := providerServer(t)
 
 	// Osano's current API identifies the subject by email or phone; a hashed subject ID is optional.
 	hashedSubjectID := testenv.Optional(testenv.EnvHashedSubjectID, "")
 	channel := strings.ToLower(testenv.Require(t, testenv.EnvVerificationChannel, "verification channel (email or sms)"))
-	contact := resolveVerificationContact(t, channel)
+	contactField, contact := resolveVerificationContact(t, channel)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	t.Logf("Sending verification code via %s to %s", channel, redactContact(contact))
-	sent, err := client.SendVerificationCode(ctx, channel, contact, hashedSubjectID)
-	if err != nil {
-		t.Fatalf("send verification code failed: %v", err)
+	args := map[string]property.Value{contactField: property.New(contact)}
+	if hashedSubjectID != "" {
+		args["hashedSubjectId"] = property.New(hashedSubjectID)
 	}
-	t.Logf("send-code response keys: %v", mapKeys(sent))
+	t.Logf("Sending verification code via %s to %s", channel, redactContact(contact))
+	sent := invoke(t, server, "sendSubjectCode", args)
+	if got := stringOutput(t, sent, "channel"); got != channel {
+		t.Fatalf("expected channel %q, got %q", channel, got)
+	}
 
 	// SMS verification requires the challenge session. Osano does not document where it comes from,
 	// so take it from the send-code response when present, or from the environment.
 	session := testenv.Optional(testenv.EnvVerificationSession, "")
-	for _, key := range []string{"session", "sessionId"} {
-		if value, ok := sent[key].(string); ok && value != "" && session == "" {
-			session = value
-		}
+	if value := sent.Get("session"); session == "" && value.IsString() {
+		session = value.AsString()
 	}
 	if channel == "sms" && session == "" {
 		t.Fatalf("SMS verification needs a session: the send-code response had none; set %s",
@@ -61,30 +56,36 @@ func TestSendAndVerifySubjectCode(t *testing.T) {
 		}
 	}
 	if code == "" {
-		t.Fatalf("verification code cannot be empty")
+		t.Fatal("verification code cannot be empty")
 	}
 
-	profile, err := client.VerifySubjectCode(ctx, channel, contact, hashedSubjectID, code, session)
-	if err != nil {
-		t.Fatalf("verify subject code failed: %v", err)
+	verifyArgs := map[string]property.Value{contactField: property.New(contact), "code": property.New(code)}
+	if hashedSubjectID != "" {
+		verifyArgs["hashedSubjectId"] = property.New(hashedSubjectID)
 	}
-	if len(profile) == 0 {
-		t.Fatalf("verification succeeded but profile payload was empty")
+	if session != "" {
+		verifyArgs["session"] = property.New(session)
 	}
-
-	t.Logf("Verification succeeded; profile keys: %v", mapKeys(profile))
+	verified := invoke(t, server, "verifySubjectCode", verifyArgs)
+	if !boolOutput(t, verified, "verified") {
+		t.Fatal("verification did not report verified")
+	}
+	if stringOutput(t, verified, "verifiedId") == "" {
+		t.Log("Osano returned no verifiedId; the profile output holds the raw response")
+	}
+	t.Logf("Verification succeeded; profile has %d keys", mapOutput(t, verified, "profile").Len())
 }
 
-func resolveVerificationContact(t *testing.T, channel string) string {
+func resolveVerificationContact(t *testing.T, channel string) (field, contact string) {
 	t.Helper()
 	switch channel {
 	case "email":
-		return testenv.Require(t, testenv.EnvVerificationEmail, "email recipient for verification code")
+		return "email", testenv.Require(t, testenv.EnvVerificationEmail, "email recipient for verification code")
 	case "sms":
-		return testenv.Require(t, testenv.EnvVerificationPhone, "phone recipient for verification code")
+		return "phone", testenv.Require(t, testenv.EnvVerificationPhone, "phone recipient for verification code")
 	default:
 		t.Fatalf("unsupported verification channel %q", channel)
-		return ""
+		return "", ""
 	}
 }
 
@@ -93,21 +94,4 @@ func promptForVerificationCode() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
 	code, err := reader.ReadString('\n')
 	return strings.TrimSpace(code), err
-}
-
-func redactContact(contact string) string {
-	trimmed := strings.TrimSpace(contact)
-	if len(trimmed) <= 4 {
-		return "****"
-	}
-	return strings.Repeat("*", len(trimmed)-4) + trimmed[len(trimmed)-4:]
-}
-
-func mapKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

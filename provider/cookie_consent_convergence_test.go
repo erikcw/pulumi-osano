@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -295,6 +296,65 @@ func TestCookieConsentRuleOptionalFieldsConverge(t *testing.T) {
 		}
 		if got := resp.Inputs.Get("classification").AsString(); got != "MARKETING" {
 			t.Fatalf("expected refresh to surface classification drift, got %q", got)
+		}
+	})
+
+	// An update must not send null for a field the program never managed: Osano would clear the
+	// default or dashboard value that Create allowed and refresh deliberately never reads.
+	t.Run("update omits optional fields the program never managed", func(t *testing.T) {
+		var body atomic.Value
+		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assertCMPRequest(t, r, http.MethodPatch, "/v1/cookie-consent/rules/42")
+			body.Store(decodeJSONBody(t, r))
+			fixture := cmpRuleResponseFixture()
+			fixture.Classification = "MARKETING"
+			writeJSON(t, w, fixture)
+		}))
+		defer api.Close()
+
+		server := newCMPProviderServer(t, api.URL)
+		if _, err := server.Update(p.UpdateRequest{
+			ID:     "config-abc/42",
+			Urn:    cmpURN("CookieConsentRule", "sparse-update"),
+			State:  sparseInputs().Set("ruleId", property.New(42.0)),
+			Inputs: sparseInputs().Set("classification", property.New("MARKETING")),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		sent, _ := body.Load().(map[string]any)
+		for _, key := range optionalKeys {
+			if _, present := sent[key]; present {
+				t.Fatalf("update must not send %s for a field the program never set: %v", key, sent)
+			}
+		}
+		if sent["classification"] != "MARKETING" {
+			t.Fatalf("expected the changed classification to be sent, got %v", sent)
+		}
+	})
+
+	t.Run("update clears a field the program removed", func(t *testing.T) {
+		var body atomic.Value
+		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body.Store(decodeJSONBody(t, r))
+			writeJSON(t, w, cmpRuleResponseFixture())
+		}))
+		defer api.Close()
+
+		server := newCMPProviderServer(t, api.URL)
+		if _, err := server.Update(p.UpdateRequest{
+			ID:     "config-abc/42",
+			Urn:    cmpURN("CookieConsentRule", "cleared-title"),
+			State:  sparseInputs().Set("ruleId", property.New(42.0)).Set("title", property.New("Analytics")),
+			Inputs: sparseInputs(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		sent, _ := body.Load().(map[string]any)
+		if value, present := sent["title"]; !present || value != nil {
+			t.Fatalf("expected title to be cleared with an explicit null, got %v", sent)
+		}
+		if _, present := sent["vendorName"]; present {
+			t.Fatalf("a never-managed field must still be omitted, got %v", sent)
 		}
 	})
 

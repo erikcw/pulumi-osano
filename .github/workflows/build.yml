@@ -27,9 +27,10 @@ jobs:
     name: prerequisites
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
 
       - id: version
         name: Set Provider Version
@@ -68,24 +69,16 @@ jobs:
             sdk/java/build.gradle
 
       - name: Tar provider binaries
-        run: tar -zcf ${{ github.workspace }}/bin/provider.tar.gz -C ${{ github.workspace }}/bin/ pulumi-resource-${{ env.PROVIDER }} pulumi-gen-${{ env.PROVIDER }}
+        run: tar -zcf "$GITHUB_WORKSPACE/bin/provider.tar.gz" -C "$GITHUB_WORKSPACE/bin/" "pulumi-resource-$PROVIDER"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: pulumi-${{ env.PROVIDER }}-provider.tar.gz
           path: ${{ github.workspace }}/bin/provider.tar.gz
 
       - name: Test Provider Library
         run: make test_provider
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   build_sdks:
     needs: prerequisites
@@ -100,11 +93,14 @@ jobs:
           - go
           - java
     name: build_sdks
+    env:
+      LANGUAGE: ${{ matrix.language }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
 
       - id: version
         name: Set Provider Version
@@ -123,10 +119,10 @@ jobs:
         uses: ./.github/actions/download-provider
 
       - name: Generate SDK
-        run: make generate_${{ matrix.language }}
+        run: make "generate_$LANGUAGE"
 
       - name: Build SDK
-        run: make build_${{ matrix.language }}
+        run: make "build_$LANGUAGE"
 
       - name: Check worktree clean
         uses: pulumi/git-status-check-action@0d90c81496aa8d6a31d9c6a0d6297feea2f54057 # v2.0.0
@@ -142,10 +138,10 @@ jobs:
             sdk/java/build.gradle
 
       - name: Tar SDK folder
-        run: tar -zcf sdk/${{ matrix.language }}.tar.gz -C sdk/${{ matrix.language }} .
+        run: tar -zcf "sdk/$LANGUAGE.tar.gz" -C "sdk/$LANGUAGE" .
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.language }}-sdk.tar.gz
           path: ${{ github.workspace }}/sdk/${{ matrix.language }}.tar.gz
@@ -157,9 +153,10 @@ jobs:
     name: build_examples
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
 
       - id: version
         name: Set Provider Version
@@ -191,20 +188,38 @@ jobs:
     name: lint
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           lfs: true
+          persist-credentials: false
 
       - name: Setup Tools
         uses: ./.github/actions/setup-tools
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Disarm go:embed directives to enable linters
-        run: git grep -l 'go:embed' -- provider | xargs --no-run-if-empty sed -i 's/go:embed/ goembed/g'
-
       - name: golangci-lint provider pkg
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           working-directory: .
           install-mode: none
+
+  # Drives the provider through real Pulumi engine operations against an in-process mock of the Osano
+  # Customer REST API, so it needs no secrets. The suite builds and installs the provider plugin itself.
+  pipeline_e2e:
+    runs-on: ubuntu-latest
+    name: pipeline_e2e
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          lfs: true
+          persist-credentials: false
+
+      - name: Setup Tools
+        uses: ./.github/actions/setup-tools
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run pipeline e2e suite
+        run: make test_pipeline_e2e

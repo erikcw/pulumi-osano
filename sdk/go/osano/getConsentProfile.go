@@ -40,7 +40,7 @@ type GetConsentProfileResult struct {
 	Exists bool `pulumi:"exists"`
 	// The hashed subject identifier that was looked up.
 	HashedSubjectId string `pulumi:"hashedSubjectId"`
-	// The consent profile Osano returned, with unifiedConsent and conflicts keys.
+	// The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject's consent history, IP address, and user agent.
 	Profile map[string]interface{} `pulumi:"profile"`
 }
 
@@ -93,7 +93,7 @@ func (o GetConsentProfileResultOutput) HashedSubjectId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetConsentProfileResult) string { return v.HashedSubjectId }).(pulumi.StringOutput)
 }
 
-// The consent profile Osano returned, with unifiedConsent and conflicts keys.
+// The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject's consent history, IP address, and user agent.
 func (o GetConsentProfileResultOutput) Profile() pulumi.MapOutput {
 	return o.ApplyT(func(v GetConsentProfileResult) map[string]interface{} { return v.Profile }).(pulumi.MapOutput)
 }

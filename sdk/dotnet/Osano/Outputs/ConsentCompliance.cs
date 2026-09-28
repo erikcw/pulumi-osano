@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+    /// </summary>
     [OutputType]
     public sealed class ConsentCompliance
     {

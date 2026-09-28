@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
+    /// </summary>
     [OutputType]
     public sealed class CookieConsentDiscovery
     {

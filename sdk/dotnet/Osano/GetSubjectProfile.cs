@@ -34,11 +34,17 @@ namespace Community.Pulumi.Osano
 
     public sealed class GetSubjectProfileArgs : global::Pulumi.InvokeArgs
     {
-        /// <summary>
-        /// The subject ID whose profile is returned.
-        /// </summary>
         [Input("subjectId", required: true)]
-        public string SubjectId { get; set; } = null!;
+        private string? _subjectId;
+
+        /// <summary>
+        /// The subject ID whose profile is returned. Secret, because it identifies a person.
+        /// </summary>
+        public string? SubjectId
+        {
+            get => _subjectId;
+            set => _subjectId = value;
+        }
 
         public GetSubjectProfileArgs()
         {
@@ -48,11 +54,21 @@ namespace Community.Pulumi.Osano
 
     public sealed class GetSubjectProfileInvokeArgs : global::Pulumi.InvokeArgs
     {
-        /// <summary>
-        /// The subject ID whose profile is returned.
-        /// </summary>
         [Input("subjectId", required: true)]
-        public Input<string> SubjectId { get; set; } = null!;
+        private Input<string>? _subjectId;
+
+        /// <summary>
+        /// The subject ID whose profile is returned. Secret, because it identifies a person.
+        /// </summary>
+        public Input<string>? SubjectId
+        {
+            get => _subjectId;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _subjectId = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         public GetSubjectProfileInvokeArgs()
         {
@@ -77,7 +93,7 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly ImmutableDictionary<string, object> Profile;
         /// <summary>
-        /// The subject ID that was looked up.
+        /// The subject ID that was looked up. Secret, because it identifies a person.
         /// </summary>
         public readonly string SubjectId;
 

@@ -5,6 +5,9 @@ import * as pulumi from "@pulumi/pulumi";
 import * as inputs from "../types/input";
 import * as outputs from "../types/output";
 
+/**
+ * One consent decision: the subject's action for a privacy protocol within a configuration.
+ */
 export interface ConsentAction {
     /**
      * The subject's choice: ACCEPT, REJECT, or UNSELECTED.
@@ -24,6 +27,9 @@ export interface ConsentAction {
     vendor: string;
 }
 
+/**
+ * Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+ */
 export interface ConsentCompliance {
     /**
      * 1 if the Global Privacy Control signal is enabled, 0 otherwise.
@@ -35,6 +41,9 @@ export interface ConsentCompliance {
     privacyPolicy?: outputs.ConsentPrivacyPolicy;
 }
 
+/**
+ * The published privacy policy a consent was given under.
+ */
 export interface ConsentPrivacyPolicy {
     /**
      * The privacy policy URL.
@@ -46,6 +55,9 @@ export interface ConsentPrivacyPolicy {
     version?: string;
 }
 
+/**
+ * The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+ */
 export interface ConsentSubject {
     /**
      * The subject's anonymous ID. Must not contain #, %, or spaces.
@@ -57,6 +69,9 @@ export interface ConsentSubject {
     verifiedId?: string;
 }
 
+/**
+ * One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.
+ */
 export interface CookieConsentAuditEvent {
     /**
      * The email of the user who performed the action, when known.
@@ -88,6 +103,9 @@ export interface CookieConsentAuditEvent {
     timestamp: string;
 }
 
+/**
+ * A resource an audit log event acted on.
+ */
 export interface CookieConsentAuditResource {
     /**
      * Whether this is the event's primary resource.
@@ -107,6 +125,9 @@ export interface CookieConsentAuditResource {
     resourceType: string;
 }
 
+/**
+ * A Cookie Consent configuration as Osano reports it, with its install script.
+ */
 export interface CookieConsentConfigDetails {
     /**
      * The Osano config ID (UUID).
@@ -170,6 +191,9 @@ export interface CookieConsentConfigDetails {
     updated: number;
 }
 
+/**
+ * A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
+ */
 export interface CookieConsentDiscovery {
     /**
      * Osano's AI classification confidence (Unknown, Low, Medium, or High). Only reported for cookies.
@@ -201,6 +225,9 @@ export interface CookieConsentDiscovery {
     updated: string;
 }
 
+/**
+ * A classification rule of a Cookie Consent configuration as Osano reports it.
+ */
 export interface CookieConsentRuleDetails {
     /**
      * The rule classification.

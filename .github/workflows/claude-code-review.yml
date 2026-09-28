@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # Runs only when the repository variable CLAUDE_ENABLED is true (and the OAuth token secret exists).
+    if: vars.CLAUDE_ENABLED == 'true'
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
@@ -35,7 +37,7 @@ jobs:
 
       - name: Checkout repository
         if: env.HAS_CLAUDE_TOKEN == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
 

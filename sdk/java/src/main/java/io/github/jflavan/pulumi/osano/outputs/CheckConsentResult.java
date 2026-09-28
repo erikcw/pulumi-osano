@@ -17,7 +17,7 @@ public final class CheckConsentResult {
      */
     private Boolean exists;
     /**
-     * @return The subject ID that was checked.
+     * @return The subject ID that was checked. Secret, because it identifies a person.
      *
      */
     private String subjectId;
@@ -31,7 +31,7 @@ public final class CheckConsentResult {
         return this.exists;
     }
     /**
-     * @return The subject ID that was checked.
+     * @return The subject ID that was checked. Secret, because it identifies a person.
      *
      */
     public String subjectId() {

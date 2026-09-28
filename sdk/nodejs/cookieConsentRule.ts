@@ -5,7 +5,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as utilities from "./utilities";
 
 /**
- * Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+ * Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano's value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
  */
 export class CookieConsentRule extends pulumi.CustomResource {
     /**
@@ -35,7 +35,7 @@ export class CookieConsentRule extends pulumi.CustomResource {
     }
 
     /**
-     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      */
     declare public readonly classification: pulumi.Output<string>;
     /**
@@ -67,11 +67,11 @@ export class CookieConsentRule extends pulumi.CustomResource {
      */
     declare public /*out*/ readonly ruleId: pulumi.Output<number>;
     /**
-     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      */
     declare public readonly ruleType: pulumi.Output<string | undefined>;
     /**
-     * The storage type category: cookies, scripts, iframes, or localStorage.
+     * The storage type category: cookies, scripts, iframes, localStorage.
      */
     declare public readonly storeType: pulumi.Output<string>;
     /**
@@ -148,7 +148,7 @@ export class CookieConsentRule extends pulumi.CustomResource {
  */
 export interface CookieConsentRuleArgs {
     /**
-     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      */
     classification: pulumi.Input<string>;
     /**
@@ -172,11 +172,11 @@ export interface CookieConsentRuleArgs {
      */
     rule: pulumi.Input<string>;
     /**
-     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      */
     ruleType?: pulumi.Input<string | undefined>;
     /**
-     * The storage type category: cookies, scripts, iframes, or localStorage.
+     * The storage type category: cookies, scripts, iframes, localStorage.
      */
     storeType: pulumi.Input<string>;
     /**

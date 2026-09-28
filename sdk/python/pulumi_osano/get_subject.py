@@ -44,7 +44,7 @@ class GetSubjectResult:
     @pulumi.getter(name="anonymousId")
     def anonymous_id(self) -> _builtins.str:
         """
-        The subject's anonymous ID, if any.
+        The subject's anonymous ID, if any. Secret, because it identifies a person.
         """
         return pulumi.get(self, "anonymous_id")
 
@@ -60,7 +60,7 @@ class GetSubjectResult:
     @pulumi.getter(name="subjectId")
     def subject_id(self) -> _builtins.str:
         """
-        The subject's Osano ID.
+        The subject's Osano ID. Secret, because it identifies a person.
         """
         return pulumi.get(self, "subject_id")
 
@@ -68,7 +68,7 @@ class GetSubjectResult:
     @pulumi.getter(name="subjectRef")
     def subject_ref(self) -> _builtins.str:
         """
-        The subject reference that was resolved.
+        The subject reference that was resolved. Secret, because it identifies a person.
         """
         return pulumi.get(self, "subject_ref")
 
@@ -76,7 +76,7 @@ class GetSubjectResult:
     @pulumi.getter(name="verifiedId")
     def verified_id(self) -> _builtins.str:
         """
-        The subject's verified ID, if the subject is verified.
+        The subject's verified ID, if the subject is verified. Secret, because it identifies a person.
         """
         return pulumi.get(self, "verified_id")
 

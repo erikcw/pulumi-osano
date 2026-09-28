@@ -47,14 +47,14 @@ public final class CheckConsentArgs extends com.pulumi.resources.InvokeArgs {
     }
 
     /**
-     * The subject ID to check.
+     * The subject ID to check. Secret, because it identifies a person.
      *
      */
     @Import(name="subjectId", required=true)
     private Output<String> subjectId;
 
     /**
-     * @return The subject ID to check.
+     * @return The subject ID to check. Secret, because it identifies a person.
      *
      */
     public Output<String> subjectId() {
@@ -130,7 +130,7 @@ public final class CheckConsentArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param subjectId The subject ID to check.
+         * @param subjectId The subject ID to check. Secret, because it identifies a person.
          *
          * @return builder
          *
@@ -141,7 +141,7 @@ public final class CheckConsentArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param subjectId The subject ID to check.
+         * @param subjectId The subject ID to check. Secret, because it identifies a person.
          *
          * @return builder
          *

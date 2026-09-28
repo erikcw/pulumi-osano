@@ -17,10 +17,17 @@ builds:
       - arm64
     ignore: []
     main: ./cmd/pulumi-resource-osano/
+    # -trimpath and a fixed modification time make the binaries reproducible, so a release archive
+    # can be rebuilt and compared with its provenance attestation.
+    flags:
+      - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s
       - -w
-      - -X github.com/jflavan/pulumi-osano/provider/version.Version={{.Tag}}
+      # {{ .Version }} is the tag without its leading "v", the same string `make provider` stamps, so the
+      # plugin reports one version everywhere (GetPluginInfo, the User-Agent, and the release name).
+      - -X github.com/jflavan/pulumi-osano/provider/version.Version={{ .Version }}
     binary: pulumi-resource-osano
 
 archives:

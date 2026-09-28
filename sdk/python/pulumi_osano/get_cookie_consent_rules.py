@@ -61,18 +61,21 @@ class AwaitableGetCookieConsentRulesResult(GetCookieConsentRulesResult):
 
 def get_cookie_consent_rules(classification: Optional[_builtins.str] = None,
                              config_id: Optional[_builtins.str] = None,
+                             max_results: Optional[_builtins.int] = None,
                              store_type: Optional[_builtins.str] = None,
                              opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetCookieConsentRulesResult:
     """
     Lists the classification rules of a Cookie Consent configuration, optionally filtered by storage type and classification. Useful for auditing rules managed outside Pulumi or finding rule IDs to import.
 
-    :param _builtins.str classification: Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+    :param _builtins.str classification: Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
     :param _builtins.str config_id: The Osano Cookie Consent config ID whose rules are listed.
-    :param _builtins.str store_type: Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+    :param _builtins.int max_results: Stop after this many rules. Unset or 0 returns every matching rule.
+    :param _builtins.str store_type: Only return rules of this storage type: cookies, scripts, iframes, localStorage.
     """
     __args__ = dict()
     __args__['classification'] = classification
     __args__['configId'] = config_id
+    __args__['maxResults'] = max_results
     __args__['storeType'] = store_type
     opts = pulumi.InvokeOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke('osano:index:getCookieConsentRules', __args__, opts=opts, typ=GetCookieConsentRulesResult).value
@@ -82,18 +85,21 @@ def get_cookie_consent_rules(classification: Optional[_builtins.str] = None,
         rules=pulumi.get(__ret__, 'rules'))
 def get_cookie_consent_rules_output(classification: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                     config_id: pulumi.Input[Optional[_builtins.str]] = None,
+                                    max_results: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
                                     store_type: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                     opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetCookieConsentRulesResult]:
     """
     Lists the classification rules of a Cookie Consent configuration, optionally filtered by storage type and classification. Useful for auditing rules managed outside Pulumi or finding rule IDs to import.
 
-    :param _builtins.str classification: Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+    :param _builtins.str classification: Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
     :param _builtins.str config_id: The Osano Cookie Consent config ID whose rules are listed.
-    :param _builtins.str store_type: Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+    :param _builtins.int max_results: Stop after this many rules. Unset or 0 returns every matching rule.
+    :param _builtins.str store_type: Only return rules of this storage type: cookies, scripts, iframes, localStorage.
     """
     __args__ = dict()
     __args__['classification'] = classification
     __args__['configId'] = config_id
+    __args__['maxResults'] = max_results
     __args__['storeType'] = store_type
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('osano:index:getCookieConsentRules', __args__, opts=opts, typ=GetCookieConsentRulesResult)

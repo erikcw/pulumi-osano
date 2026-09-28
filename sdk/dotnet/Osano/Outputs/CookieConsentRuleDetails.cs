@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// A classification rule of a Cookie Consent configuration as Osano reports it.
+    /// </summary>
     [OutputType]
     public sealed class CookieConsentRuleDetails
     {

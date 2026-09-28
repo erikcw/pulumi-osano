@@ -16,14 +16,14 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
     public static final SendSubjectCodeArgs Empty = new SendSubjectCodeArgs();
 
     /**
-     * Email address to send the code to. Set exactly one of email or phone.
+     * Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="email")
     private @Nullable Output<String> email;
 
     /**
-     * @return Email address to send the code to. Set exactly one of email or phone.
+     * @return Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<Output<String>> email() {
@@ -46,14 +46,14 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
     }
 
     /**
-     * Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="phone")
     private @Nullable Output<String> phone;
 
     /**
-     * @return Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * @return Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<Output<String>> phone() {
@@ -87,7 +87,7 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param email Email address to send the code to. Set exactly one of email or phone.
+         * @param email Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -98,7 +98,7 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param email Email address to send the code to. Set exactly one of email or phone.
+         * @param email Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -129,7 +129,7 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone.
+         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -140,7 +140,7 @@ public final class SendSubjectCodeArgs extends com.pulumi.resources.InvokeArgs {
         }
 
         /**
-         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone.
+         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *

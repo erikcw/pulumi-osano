@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// One consent decision: the subject's action for a privacy protocol within a configuration.
+    /// </summary>
     [OutputType]
     public sealed class ConsentAction
     {

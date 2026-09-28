@@ -17,49 +17,49 @@ import javax.annotation.Nullable;
 @ResourceType(type="pulumi:providers:osano")
 public class Provider extends com.pulumi.resources.ProviderResource {
     /**
-     * Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+     * Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     @Export(name="apiBaseUrl", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> apiBaseUrl;
 
     /**
-     * @return Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+     * @return Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     public Output<Optional<String>> apiBaseUrl() {
         return Codegen.optional(this.apiBaseUrl);
     }
     /**
-     * Override base URL for the Customer REST API (default: https://api.osano.com).
+     * Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     @Export(name="customerBaseUrl", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> customerBaseUrl;
 
     /**
-     * @return Override base URL for the Customer REST API (default: https://api.osano.com).
+     * @return Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
      *
      */
     public Output<Optional<String>> customerBaseUrl() {
         return Codegen.optional(this.customerBaseUrl);
     }
     /**
-     * Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+     * Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
      *
      */
     @Export(name="osanoApiKey", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> osanoApiKey;
 
     /**
-     * @return Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+     * @return Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
      *
      */
     public Output<Optional<String>> osanoApiKey() {
         return Codegen.optional(this.osanoApiKey);
     }
     /**
-     * Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+     * Former name of unifiedConsentApiKey, read only when that key is unset.
      *
      * @deprecated
      * use unifiedConsentApiKey instead
@@ -70,14 +70,14 @@ public class Provider extends com.pulumi.resources.ProviderResource {
     private Output</* @Nullable */ String> ucApiKey;
 
     /**
-     * @return Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+     * @return Former name of unifiedConsentApiKey, read only when that key is unset.
      *
      */
     public Output<Optional<String>> ucApiKey() {
         return Codegen.optional(this.ucApiKey);
     }
     /**
-     * Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+     * Former name of apiBaseUrl, read only when apiBaseUrl is unset.
      *
      * @deprecated
      * use apiBaseUrl instead
@@ -88,21 +88,21 @@ public class Provider extends com.pulumi.resources.ProviderResource {
     private Output</* @Nullable */ String> ucBaseUrl;
 
     /**
-     * @return Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+     * @return Former name of apiBaseUrl, read only when apiBaseUrl is unset.
      *
      */
     public Output<Optional<String>> ucBaseUrl() {
         return Codegen.optional(this.ucBaseUrl);
     }
     /**
-     * Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+     * Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
      *
      */
     @Export(name="unifiedConsentApiKey", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> unifiedConsentApiKey;
 
     /**
-     * @return Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+     * @return Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
      *
      */
     public Output<Optional<String>> unifiedConsentApiKey() {

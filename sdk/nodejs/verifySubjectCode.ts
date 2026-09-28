@@ -24,7 +24,7 @@ export interface VerifySubjectCodeArgs {
      */
     code: string;
     /**
-     * Email address the code was sent to. Set exactly one of email or phone.
+     * Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     email?: string;
     /**
@@ -32,7 +32,7 @@ export interface VerifySubjectCodeArgs {
      */
     hashedSubjectId?: string;
     /**
-     * Phone number the code was sent to. Set exactly one of email or phone.
+     * Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     phone?: string;
     /**
@@ -59,11 +59,11 @@ export interface VerifySubjectCodeResult {
      */
     readonly profile: {[key: string]: any};
     /**
-     * True when Osano accepted the code; a rejected code fails the invoke instead.
+     * True when Osano accepted the code. A rejected code fails the invoke, as does a response that reports verified: false.
      */
     readonly verified: boolean;
     /**
-     * The subject's verified ID returned by Osano.
+     * The subject's verified ID returned by Osano. Secret, because it identifies a person.
      */
     readonly verifiedId: string;
 }
@@ -87,7 +87,7 @@ export interface VerifySubjectCodeOutputArgs {
      */
     code: pulumi.Input<string>;
     /**
-     * Email address the code was sent to. Set exactly one of email or phone.
+     * Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     email?: pulumi.Input<string | undefined>;
     /**
@@ -95,7 +95,7 @@ export interface VerifySubjectCodeOutputArgs {
      */
     hashedSubjectId?: pulumi.Input<string | undefined>;
     /**
-     * Phone number the code was sent to. Set exactly one of email or phone.
+     * Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     phone?: pulumi.Input<string | undefined>;
     /**

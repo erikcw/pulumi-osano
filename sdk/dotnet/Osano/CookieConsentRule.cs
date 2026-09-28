@@ -11,13 +11,13 @@ using Pulumi;
 namespace Community.Pulumi.Osano
 {
     /// <summary>
-    /// Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `&lt;configId&gt;/&lt;ruleId&gt;`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+    /// Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `&lt;configId&gt;/&lt;ruleId&gt;`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano's value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
     /// </summary>
     [OsanoResourceType("osano:index:CookieConsentRule")]
     public partial class CookieConsentRule : global::Pulumi.CustomResource
     {
         /// <summary>
-        /// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        /// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         /// </summary>
         [Output("classification")]
         public Output<string> Classification { get; private set; } = null!;
@@ -65,13 +65,13 @@ namespace Community.Pulumi.Osano
         public Output<int> RuleId { get; private set; } = null!;
 
         /// <summary>
-        /// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+        /// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
         /// </summary>
         [Output("ruleType")]
         public Output<string?> RuleType { get; private set; } = null!;
 
         /// <summary>
-        /// The storage type category: cookies, scripts, iframes, or localStorage.
+        /// The storage type category: cookies, scripts, iframes, localStorage.
         /// </summary>
         [Output("storeType")]
         public Output<string> StoreType { get; private set; } = null!;
@@ -141,7 +141,7 @@ namespace Community.Pulumi.Osano
     public sealed class CookieConsentRuleArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>
-        /// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        /// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         /// </summary>
         [Input("classification", required: true)]
         public Input<string> Classification { get; set; } = null!;
@@ -177,13 +177,13 @@ namespace Community.Pulumi.Osano
         public Input<string> Rule { get; set; } = null!;
 
         /// <summary>
-        /// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+        /// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
         /// </summary>
         [Input("ruleType")]
         public Input<string>? RuleType { get; set; }
 
         /// <summary>
-        /// The storage type category: cookies, scripts, iframes, or localStorage.
+        /// The storage type category: cookies, scripts, iframes, localStorage.
         /// </summary>
         [Input("storeType", required: true)]
         public Input<string> StoreType { get; set; } = null!;

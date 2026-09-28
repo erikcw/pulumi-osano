@@ -26,7 +26,7 @@ export interface CheckConsentArgs {
      */
     regionCodeOverride?: string;
     /**
-     * The subject ID to check.
+     * The subject ID to check. Secret, because it identifies a person.
      */
     subjectId: string;
 }
@@ -37,7 +37,7 @@ export interface CheckConsentResult {
      */
     readonly exists: boolean;
     /**
-     * The subject ID that was checked.
+     * The subject ID that was checked. Secret, because it identifies a person.
      */
     readonly subjectId: string;
 }
@@ -63,7 +63,7 @@ export interface CheckConsentOutputArgs {
      */
     regionCodeOverride?: pulumi.Input<string | undefined>;
     /**
-     * The subject ID to check.
+     * The subject ID to check. Secret, because it identifies a person.
      */
     subjectId: pulumi.Input<string>;
 }

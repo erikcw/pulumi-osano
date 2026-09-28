@@ -5,6 +5,9 @@ import * as pulumi from "@pulumi/pulumi";
 import * as inputs from "../types/input";
 import * as outputs from "../types/output";
 
+/**
+ * One consent decision: the subject's action for a privacy protocol within a configuration.
+ */
 export interface ConsentActionArgs {
     /**
      * The subject's choice: ACCEPT, REJECT, or UNSELECTED.
@@ -24,6 +27,9 @@ export interface ConsentActionArgs {
     vendor: pulumi.Input<string>;
 }
 
+/**
+ * Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+ */
 export interface ConsentComplianceArgs {
     /**
      * 1 if the Global Privacy Control signal is enabled, 0 otherwise.
@@ -35,6 +41,9 @@ export interface ConsentComplianceArgs {
     privacyPolicy?: pulumi.Input<inputs.ConsentPrivacyPolicyArgs | undefined>;
 }
 
+/**
+ * The published privacy policy a consent was given under.
+ */
 export interface ConsentPrivacyPolicyArgs {
     /**
      * The privacy policy URL.
@@ -46,6 +55,9 @@ export interface ConsentPrivacyPolicyArgs {
     version?: pulumi.Input<string | undefined>;
 }
 
+/**
+ * The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+ */
 export interface ConsentSubjectArgs {
     /**
      * The subject's anonymous ID. Must not contain #, %, or spaces.

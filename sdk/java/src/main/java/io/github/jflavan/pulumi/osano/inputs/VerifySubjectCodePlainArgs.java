@@ -31,14 +31,14 @@ public final class VerifySubjectCodePlainArgs extends com.pulumi.resources.Invok
     }
 
     /**
-     * Email address the code was sent to. Set exactly one of email or phone.
+     * Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="email")
     private @Nullable String email;
 
     /**
-     * @return Email address the code was sent to. Set exactly one of email or phone.
+     * @return Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<String> email() {
@@ -61,14 +61,14 @@ public final class VerifySubjectCodePlainArgs extends com.pulumi.resources.Invok
     }
 
     /**
-     * Phone number the code was sent to. Set exactly one of email or phone.
+     * Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="phone")
     private @Nullable String phone;
 
     /**
-     * @return Phone number the code was sent to. Set exactly one of email or phone.
+     * @return Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<String> phone() {
@@ -130,7 +130,7 @@ public final class VerifySubjectCodePlainArgs extends com.pulumi.resources.Invok
         }
 
         /**
-         * @param email Email address the code was sent to. Set exactly one of email or phone.
+         * @param email Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -152,7 +152,7 @@ public final class VerifySubjectCodePlainArgs extends com.pulumi.resources.Invok
         }
 
         /**
-         * @param phone Phone number the code was sent to. Set exactly one of email or phone.
+         * @param phone Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *

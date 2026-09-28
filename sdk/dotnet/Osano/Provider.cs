@@ -14,37 +14,37 @@ namespace Community.Pulumi.Osano
     public partial class Provider : global::Pulumi.ProviderResource
     {
         /// <summary>
-        /// Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+        /// Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         /// </summary>
         [Output("apiBaseUrl")]
         public Output<string?> ApiBaseUrl { get; private set; } = null!;
 
         /// <summary>
-        /// Override base URL for the Customer REST API (default: https://api.osano.com).
+        /// Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         /// </summary>
         [Output("customerBaseUrl")]
         public Output<string?> CustomerBaseUrl { get; private set; } = null!;
 
         /// <summary>
-        /// Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+        /// Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
         /// </summary>
         [Output("osanoApiKey")]
         public Output<string?> OsanoApiKey { get; private set; } = null!;
 
         /// <summary>
-        /// Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+        /// Former name of unifiedConsentApiKey, read only when that key is unset.
         /// </summary>
         [Output("ucApiKey")]
         public Output<string?> UcApiKey { get; private set; } = null!;
 
         /// <summary>
-        /// Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+        /// Former name of apiBaseUrl, read only when apiBaseUrl is unset.
         /// </summary>
         [Output("ucBaseUrl")]
         public Output<string?> UcBaseUrl { get; private set; } = null!;
 
         /// <summary>
-        /// Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+        /// Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
         /// </summary>
         [Output("unifiedConsentApiKey")]
         public Output<string?> UnifiedConsentApiKey { get; private set; } = null!;
@@ -85,13 +85,13 @@ namespace Community.Pulumi.Osano
     public sealed class ProviderArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>
-        /// Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+        /// Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         /// </summary>
         [Input("apiBaseUrl")]
         public Input<string>? ApiBaseUrl { get; set; }
 
         /// <summary>
-        /// Override base URL for the Customer REST API (default: https://api.osano.com).
+        /// Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         /// </summary>
         [Input("customerBaseUrl")]
         public Input<string>? CustomerBaseUrl { get; set; }
@@ -100,7 +100,7 @@ namespace Community.Pulumi.Osano
         private Input<string>? _osanoApiKey;
 
         /// <summary>
-        /// Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+        /// Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
         /// </summary>
         public Input<string>? OsanoApiKey
         {
@@ -113,7 +113,7 @@ namespace Community.Pulumi.Osano
         }
 
         /// <summary>
-        /// HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+        /// Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
         /// </summary>
         [Input("requestTimeoutSeconds", json: true)]
         public Input<int>? RequestTimeoutSeconds { get; set; }
@@ -122,7 +122,7 @@ namespace Community.Pulumi.Osano
         private Input<string>? _ucApiKey;
 
         /// <summary>
-        /// Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+        /// Former name of unifiedConsentApiKey, read only when that key is unset.
         /// </summary>
         [Obsolete(@"use unifiedConsentApiKey instead")]
         public Input<string>? UcApiKey
@@ -136,7 +136,7 @@ namespace Community.Pulumi.Osano
         }
 
         /// <summary>
-        /// Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+        /// Former name of apiBaseUrl, read only when apiBaseUrl is unset.
         /// </summary>
         [Input("ucBaseUrl")]
         public Input<string>? UcBaseUrl { get; set; }
@@ -145,7 +145,7 @@ namespace Community.Pulumi.Osano
         private Input<string>? _unifiedConsentApiKey;
 
         /// <summary>
-        /// Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+        /// Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
         /// </summary>
         public Input<string>? UnifiedConsentApiKey
         {

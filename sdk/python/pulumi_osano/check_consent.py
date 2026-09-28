@@ -43,7 +43,7 @@ class CheckConsentResult:
     @pulumi.getter(name="subjectId")
     def subject_id(self) -> _builtins.str:
         """
-        The subject ID that was checked.
+        The subject ID that was checked. Secret, because it identifies a person.
         """
         return pulumi.get(self, "subject_id")
 
@@ -67,7 +67,7 @@ def check_consent(country_code_override: Optional[_builtins.str] = None,
 
     :param _builtins.str country_code_override: Optional ISO 3166-1 country code Osano uses instead of resolving the caller's IP address, which in a pipeline is the CI runner's.
     :param _builtins.str region_code_override: Optional ISO 3166-2 region code Osano uses instead of resolving the caller's IP address.
-    :param _builtins.str subject_id: The subject ID to check.
+    :param _builtins.str subject_id: The subject ID to check. Secret, because it identifies a person.
     """
     __args__ = dict()
     __args__['countryCodeOverride'] = country_code_override
@@ -88,7 +88,7 @@ def check_consent_output(country_code_override: pulumi.Input[Optional[Optional[_
 
     :param _builtins.str country_code_override: Optional ISO 3166-1 country code Osano uses instead of resolving the caller's IP address, which in a pipeline is the CI runner's.
     :param _builtins.str region_code_override: Optional ISO 3166-2 region code Osano uses instead of resolving the caller's IP address.
-    :param _builtins.str subject_id: The subject ID to check.
+    :param _builtins.str subject_id: The subject ID to check. Secret, because it identifies a person.
     """
     __args__ = dict()
     __args__['countryCodeOverride'] = country_code_override

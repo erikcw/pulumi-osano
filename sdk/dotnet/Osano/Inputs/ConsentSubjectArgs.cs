@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Inputs
 {
 
+    /// <summary>
+    /// The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+    /// </summary>
     public sealed class ConsentSubjectArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>

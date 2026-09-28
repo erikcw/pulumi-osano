@@ -40,6 +40,7 @@ type providerSchema struct {
 	Keywords          []string                                      `json:"keywords"`
 	PluginDownloadURL string                                        `json:"pluginDownloadURL"`
 	Config            struct{ Variables map[string]schemaProperty } `json:"config"`
+	Types             map[string]schemaObject                       `json:"types"`
 	Resources         map[string]schemaObject                       `json:"resources"`
 	Functions         map[string]schemaObject                       `json:"functions"`
 }
@@ -134,9 +135,49 @@ func TestProviderSchemaContract(t *testing.T) {
 			t.Fatalf("function %s missing from schema", token)
 		}
 	}
-	// Personal data read from Unified Consent is secret.
-	if !schema.Functions["osano:index:getSubjectProfile"].Outputs.Properties["email"].Secret {
-		t.Fatal("expected getSubjectProfile.email to be secret")
+	// Personal data read from or sent to Unified Consent is secret: subject identifiers, contact
+	// details, session and verification values, and consent payloads (which carry the IP address).
+	secretInputs := map[string][]string{
+		"getUnifiedConsent": {"subjectRef"},
+		"getSubject":        {"subjectRef"},
+		"checkConsent":      {"subjectId"},
+		"getSubjectProfile": {"subjectId"},
+		"getSession":        {"sessionId"},
+		"sendSubjectCode":   {"email", "phone"},
+		"verifySubjectCode": {"email", "phone", "code", "session"},
+	}
+	secretOutputs := map[string][]string{
+		"getUnifiedConsent": {"subjectRef", "unifiedConsent", "conflicts"},
+		"getSubject":        {"subjectRef", "subjectId", "verifiedId", "anonymousId"},
+		"checkConsent":      {"subjectId"},
+		"getConsentProfile": {"profile"},
+		"getSubjectProfile": {"subjectId", "email", "profile"},
+		"getSession":        {"verifiedId", "profile"},
+		"sendSubjectCode":   {"destination", "session"},
+		"verifySubjectCode": {"destination", "verifiedId", "profile"},
+	}
+	for token, inputs := range secretInputs {
+		for _, input := range inputs {
+			if !schema.Functions["osano:index:"+token].Inputs.Properties[input].Secret {
+				t.Errorf("expected %s.%s input to be secret", token, input)
+			}
+		}
+	}
+	for token, outputs := range secretOutputs {
+		for _, output := range outputs {
+			if !schema.Functions["osano:index:"+token].Outputs.Properties[output].Secret {
+				t.Errorf("expected %s.%s output to be secret", token, output)
+			}
+		}
+	}
+	consent := schema.Resources["osano:index:Consent"]
+	if !consent.InputProperties["subject"].Secret || !consent.Properties["subject"].Secret {
+		t.Error("expected Consent.subject to be secret in inputs and outputs")
+	}
+	for _, public := range []string{"exists"} {
+		if schema.Functions["osano:index:getSubject"].Outputs.Properties[public].Secret {
+			t.Errorf("expected getSubject.%s to stay public", public)
+		}
 	}
 }
 
@@ -181,6 +222,19 @@ func TestProviderSchemaDescribesEveryInput(t *testing.T) {
 	for name, variable := range schema.Config.Variables {
 		if variable.Description == "" {
 			t.Errorf("config %s has no description", name)
+		}
+	}
+	if len(schema.Types) == 0 {
+		t.Fatal("expected nested object types in the schema")
+	}
+	for token, typ := range schema.Types {
+		if typ.Description == "" {
+			t.Errorf("type %s has no description", token)
+		}
+		for name, prop := range typ.Properties {
+			if prop.Description == "" {
+				t.Errorf("type %s property %s has no description", token, name)
+			}
 		}
 	}
 }

@@ -207,7 +207,7 @@ func TestRuleStoreType(t *testing.T) {
 func TestPublicationPollHelpers(t *testing.T) {
 	t.Parallel()
 
-	defaults := defaultPublicationPollOptions()
+	defaults := defaultPublicationPollOptions(context.Background())
 	if defaults.InitialInterval != time.Second || defaults.MaxInterval != 10*time.Second ||
 		defaults.Timeout != 20*time.Minute || defaults.Sleep == nil {
 		t.Fatalf("unexpected default poll options: %#v", defaults)
@@ -277,7 +277,7 @@ func TestUnifiedConsentInvokeErrors(t *testing.T) {
 		body    string
 		wantErr string
 	}{
-		{"server error", http.StatusInternalServerError, `{"message":"boom"}`, "status 500"},
+		{"server error", http.StatusInternalServerError, `{"message":"boom"}`, "status=500"},
 		{"malformed response", http.StatusOK, `{not json`, "decode"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestUnifiedConsentInvokeErrors(t *testing.T) {
 				})
 				want := tc.wantErr
 				if token == "sendSubjectCode" {
-					want = "status 500"
+					want = "status=500"
 				}
 				if err == nil || !strings.Contains(err.Error(), want) {
 					t.Fatalf("%s: expected error containing %q, got %v", token, want, err)
@@ -343,13 +343,13 @@ func TestConsentResourceErrorsAndDelete(t *testing.T) {
 		})}),
 	})
 	if _, err := server.Create(p.CreateRequest{Urn: cmpURN("Consent", "bad"), Properties: inputs}); err == nil ||
-		!strings.Contains(err.Error(), "status 500") {
+		!strings.Contains(err.Error(), "status=500") {
 		t.Fatalf("expected consent create error, got %v", err)
 	}
 	state := inputs.Set("consentId", property.New("consent-1")).Set("lastSynced", property.New(""))
 	if _, err := server.Read(p.ReadRequest{
 		ID: "consent-1", Urn: cmpURN("Consent", "bad"), Properties: state, Inputs: inputs,
-	}); err == nil || !strings.Contains(err.Error(), "status 500") {
+	}); err == nil || !strings.Contains(err.Error(), "status=500") {
 		t.Fatalf("expected consent read error, got %v", err)
 	}
 	err := server.Delete(p.DeleteRequest{ID: "consent-1", Urn: cmpURN("Consent", "gone"), Properties: state})

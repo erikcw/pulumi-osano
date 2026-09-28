@@ -26,7 +26,7 @@ Import names and requirements, as of `0.2.1`:
 | Node.js | `import * as osano from "@jflavan/pulumi-osano";` | `@pulumi/pulumi` `^3.142.0`; Node.js 22 or later, which current `@pulumi/pulumi` releases require |
 | Python | `import pulumi_osano as osano` | Python 3.10 or later, `pulumi>=3.231.0,<4.0.0`, `packaging>=24.0` (the package is built from `pyproject.toml`) |
 | Go | `import "github.com/jflavan/pulumi-osano/sdk/go/osano"` | Go 1.26.6 or later, `github.com/pulumi/pulumi/sdk/v3` v3.264.0 or later (`go get` raises your requirement to it) |
-| .NET | `using Community.Pulumi.Osano;` | .NET 8 or later, tested with .NET 8 and .NET 10 (the package targets `net6.0`, which NuGet resolves for any later framework), `Pulumi` `[3.76.1, 4.0.0)` |
+| .NET | `using Community.Pulumi.Osano;` | .NET 8 or later, tested with .NET 8 and .NET 10 (`0.2.x` targets `net6.0`, which NuGet resolves for any later framework; from `0.3.0` the package targets `net8.0`), `Pulumi` `[3.76.1, 4.0.0)` |
 | Java | `import io.github.jflavan.pulumi.osano.*;` | Java 11 or later, `com.pulumi:pulumi` |
 
 ### Java
@@ -167,6 +167,15 @@ dotnet nuget verify --all community.pulumi.osano.0.2.1.nupkg
 The output names `NuGet.org Repository by Microsoft`. The package is published from the release
 workflow through NuGet trusted publishing, which uses a short-lived API key instead of a stored one.
 
+From `0.3.0`, the release workflow also attests the build provenance of the exact `.nupkg` it
+pushed, so the package downloaded from nuget.org verifies like a plugin archive:
+
+```bash
+curl -sSL -o community.pulumi.osano.X.Y.Z.nupkg \
+  https://www.nuget.org/api/v2/package/Community.Pulumi.Osano/X.Y.Z
+gh attestation verify community.pulumi.osano.X.Y.Z.nupkg --owner jflavan
+```
+
 ### Maven Central
 
 Every file of the Java package has a detached `.asc` signature made with the release signing key:
@@ -200,7 +209,9 @@ hashes in `go.sum`. `go mod verify` checks that the copies in the module cache s
 These do not affect how the packages work:
 
 - The npm package `0.1.0` has no provenance statement (see [npm](#npm)).
-- The NuGet package `0.1.0` was built in the Debug configuration and has no package tags.
+- The NuGet packages `0.1.0` to `0.2.1` were built in the Debug configuration, have no package
+  tags, and target `net6.0`; `0.3.0` and later are Release builds that target `net8.0` and carry
+  tags and a build provenance attestation.
 - The npm `package.json` declares no `main` field; Node.js loads `index.js`, and TypeScript reads
   the declared `index.d.ts` types.
 
@@ -221,12 +232,14 @@ run of the workflow is always a dry run and never publishes.
 | `publish` | GoReleaser builds the archives, SBOMs (Syft), and `checksums.txt` and creates the GitHub release; `actions/attest-build-provenance` then attests every file listed in `checksums.txt`. | `GITHUB_TOKEN`; the attestations are signed with the job's OIDC identity (`id-token: write`). |
 | `publish_sdks` (npm) | `.github/scripts/publish-npm.sh` runs `npm publish --provenance` with the `latest`, `alpha`, `beta`, or `rc` dist-tag. | npm trusted publishing (OIDC). |
 | `publish_sdks` (PyPI) | `pypa/gh-action-pypi-publish` uploads the wheel and source distribution with publish attestations. | PyPI trusted publishing (OIDC). |
-| `publish_sdks` (NuGet) | `dotnet nuget push` uploads the `.nupkg`. | NuGet trusted publishing: `nuget/login` exchanges the OIDC token for a short-lived API key for the `NUGET_USERNAME` account. |
+| `publish_sdks` (NuGet) | `dotnet nuget push` uploads the `.nupkg`; `actions/attest-build-provenance` then attests the pushed file. | NuGet trusted publishing: `nuget/login` exchanges the OIDC token for a short-lived API key for the `NUGET_USERNAME` account; the attestation is signed with the job's OIDC identity. |
 | `publish_java_sdk` | Gradle `publishToSonatype closeAndReleaseSonatypeStagingRepository` uploads the signed publication to Maven Central through the Central Portal. | A Central Portal user token (`MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`); the release key signs the artifacts (`JAVA_SIGNING_KEY`, `JAVA_SIGNING_KEY_ID`, `JAVA_SIGNING_PASSWORD`). |
 | `publish_go_sdk` | `pulumi/publish-go-sdk-action` commits the generated Go SDK on a release-only commit and pushes the `sdk/go/osano/vX.Y.Z` tag, which the Go module proxy serves. | `GITHUB_TOKEN` with `contents: write`. |
 
-`publish_sdks` and `publish_java_sdk` run after `publish`, and `publish_go_sdk` runs after
-`publish_sdks`, so a failed npm, PyPI, or NuGet step also holds back the Go tag. What each job does
+`publish` runs after `build_sdks` and `verify` (lint, e2e compilation, script tests, and the
+engine-level pipeline suite), `publish_sdks` and `publish_java_sdk` run after `publish`, and
+`publish_go_sdk` runs after `publish_sdks`, so a failed check holds back every package and a failed
+npm, PyPI, or NuGet step also holds back the Go tag. What each job does
 when a failed release is re-run is described in
 [Re-run a partially failed release](RELEASE_GUIDE.md#re-run-a-partially-failed-release).
 

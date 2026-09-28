@@ -15,7 +15,7 @@ import java.util.Objects;
 @CustomType
 public final class GetUnifiedConsentResult {
     /**
-     * @return Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+     * @return Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
      *
      */
     private List<Map<String,Object>> conflicts;
@@ -25,19 +25,19 @@ public final class GetUnifiedConsentResult {
      */
     private Boolean exists;
     /**
-     * @return The subject reference that was looked up.
+     * @return The subject reference that was looked up. Secret, because it identifies a person.
      *
      */
     private String subjectRef;
     /**
-     * @return The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+     * @return The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject&#39;s IP address and user agent.
      *
      */
     private Map<String,Object> unifiedConsent;
 
     private GetUnifiedConsentResult() {}
     /**
-     * @return Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+     * @return Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
      *
      */
     public List<Map<String,Object>> conflicts() {
@@ -51,14 +51,14 @@ public final class GetUnifiedConsentResult {
         return this.exists;
     }
     /**
-     * @return The subject reference that was looked up.
+     * @return The subject reference that was looked up. Secret, because it identifies a person.
      *
      */
     public String subjectRef() {
         return this.subjectRef;
     }
     /**
-     * @return The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+     * @return The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject&#39;s IP address and user agent.
      *
      */
     public Map<String,Object> unifiedConsent() {

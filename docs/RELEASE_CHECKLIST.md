@@ -22,15 +22,15 @@ Use this checklist whenever publishing a new `pulumi-osano` provider release.
 
    ```bash
    make codegen
-   make test_provider
+   make lint
+   make test_all        # tests, e2e compilation, script tests, and the pipeline suite
    make build_sdks
    make build_examples
-   make test_e2e_compile
    git diff --exit-code
    ```
 
-   - Also run `make provider` so the version-stamped Go provider compiles and
-     `make lint` to execute `golangci-lint` with repository defaults.
+   - Also run `make provider` so the version-stamped Go provider compiles, and `make vulncheck`
+     to check the dependencies against the Go vulnerability database.
    - The final diff check proves schema, SDKs, and copied package READMEs are current.
    - Confirm the latest `CodeQL Advanced` run on `main` succeeded and that
      **Security and quality > Code scanning** shows no open critical or high alerts.
@@ -40,9 +40,10 @@ Use this checklist whenever publishing a new `pulumi-osano` provider release.
 4. **Run a release dry run**
    - `gh workflow run release.yml --ref main` (or **Actions > release > Run workflow** on `main`).
      Manual runs never publish.
-   - Every job must pass: the provider and SDK builds, `publish (dry run)` (GoReleaser snapshot
-     and archive names), `publish_sdks (dry run)` (`npm publish --dry-run`, `twine check`, the
-     `.nupkg`, the Go SDK tag), and `publish_java_sdk (dry run)` (`publishToMavenLocal`).
+   - Every job must pass: the provider and SDK builds, `verify` (lint, e2e compilation, script
+     tests, and the pipeline suite), `publish (dry run)` (GoReleaser snapshot and archive names),
+     `publish_sdks (dry run)` (`npm publish --dry-run`, `twine check`, the `.nupkg`, the Go SDK
+     tag), and `publish_java_sdk (dry run)` (`publishToMavenLocal`).
 5. **Validate documentation**
    - README quickstart instructions must reflect the published install paths.
    - Repo-local examples must clearly document any required local SDK build steps.
@@ -55,8 +56,9 @@ Use this checklist whenever publishing a new `pulumi-osano` provider release.
      packages, and the version-pinned commands name the new version: the README's Java and plugin
      commands, the plugin command in each `docs/package-readmes/` file (and its `sdk/` copy), `docs/PUBLISHING.md`, `docs/UPGRADE.md`, `docs/troubleshooting.md`,
      `docs/installation-configuration.md`, `docs/logging.md` (the user agent example), the
-     released-package sections of the example READMEs, and, for a new minor version, the
-     supported-versions table in `SECURITY.md`.
+     released-package sections of the example READMEs, the version placeholder in
+     `.github/ISSUE_TEMPLATE/bug.yaml`, and, for a new minor version, the supported-versions
+     table in `SECURITY.md`.
 6. **Update the changelog**
    - In the release PR, move the `## [Unreleased]` entries of `CHANGELOG.md` into
      `## [X.Y.Z] - YYYY-MM-DD` and add its compare link. Date it with the day you tag (UTC),
@@ -80,15 +82,15 @@ Use this checklist whenever publishing a new `pulumi-osano` provider release.
    - Check that the plugin installs:
      `pulumi plugin install resource osano X.Y.Z --server github://api.github.com/jflavan/pulumi-osano`.
    - Verify provenance and signatures as described in `docs/PUBLISHING.md` (for example
-     `gh attestation verify pulumi-resource-osano-vX.Y.Z-linux-amd64.tar.gz --owner jflavan`).
+     `gh attestation verify pulumi-resource-osano-vX.Y.Z-linux-amd64.tar.gz --owner jflavan`, and
+     the same for the `.nupkg` downloaded from nuget.org).
      Allow 10 to 30 minutes for Maven Central to reach `repo1.maven.org`, and use
      `npm view --prefer-online` if npm shows a stale 404.
    - The npm bootstrap was done for `v0.1.0`. It is needed again only for a brand-new npm
      package; see "npm: bootstrap, then trusted publishing" in the release guide.
    - Not done yet: the provider is not in the Pulumi Registry. The registry reads
-     `docs/_index.md` and `docs/installation-configuration.md` from the release tag, and the
-     `v0.1.0` overview still mentions GitHub Discussions, so list it after the first release after
-     `v0.1.0`. List it once: open a PR to
+     `docs/_index.md` and `docs/installation-configuration.md` from the latest release tag, and
+     nothing blocks the listing since `v0.2.1`. List it once: open a PR to
      [pulumi/registry](https://github.com/pulumi/registry) that adds
      `{"repoSlug": "jflavan/pulumi-osano", "schemaFile": "provider/cmd/pulumi-resource-osano/schema.json"}`
      to `community-packages/package-list.json` and `"John Flavan": "john_flavan"` to

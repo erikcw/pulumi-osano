@@ -19,6 +19,8 @@ export GOPATH   := $(shell go env GOPATH)
 
 WORKING_DIR     := $(shell pwd)
 TESTPARALLELISM := 4
+# The race detector needs cgo. Set RACE= to run the tests on a toolchain without it.
+RACE            ?= -race
 
 # Override during CI using `make [TARGET] PROVIDER_VERSION=""` or by setting a PROVIDER_VERSION environment variable
 # Local & branch builds will just used this fixed default version unless specified
@@ -29,6 +31,7 @@ VERSION_GENERIC = $(shell pulumictl convert-version --language generic --version
 # Need to pick up locally pinned pulumi-langage-* plugins.
 export PULUMI_IGNORE_AMBIENT_PLUGINS = true
 
+# Keep a cheap target first: the CodeQL autobuild runs `make` with no target.
 ensure::
 	go mod tidy
 
@@ -42,14 +45,7 @@ $(SCHEMA_FILE): provider
 # does not require the ability to build all SDKs.
 #
 # To build the SDKs, use `make build_sdks`
-#
-# Required by CI (weekly-pulumi-update)
 codegen: $(SCHEMA_FILE) sdk/dotnet sdk/go sdk/nodejs sdk/python sdk/java
-
-.PHONY: sdk/%
-sdk/%: $(SCHEMA_FILE)
-	rm -rf $@
-	$(PULUMI) package gen-sdk --language $* $(SCHEMA_FILE) --version "${VERSION_GENERIC}"
 
 sdk/nodejs: $(SCHEMA_FILE)
 	rm -rf $@
@@ -77,6 +73,8 @@ sdk/python: $(SCHEMA_FILE)
 	$(PULUMI) package gen-sdk --language python $(SCHEMA_FILE) --version "${VERSION_GENERIC}"
 	@python3 scripts/normalize-python-sdk.py ${PACKDIR}/python
 	cp ${PACKAGE_READMES}/python.md ${PACKDIR}/python/README.md
+	# setuptools packages LICENSE* files it finds next to pyproject.toml into the sdist and wheel.
+	cp LICENSE ${PACKDIR}/python/LICENSE
 
 sdk/dotnet: $(SCHEMA_FILE)
 	rm -rf $@
@@ -87,8 +85,8 @@ sdk/dotnet: $(SCHEMA_FILE)
 	# committed copy instead so codegen output never depends on what that URL serves.
 	cp assets/logo.png ${PACKDIR}/dotnet/logo.png
 
-
-
+# The Go SDK's go.mod starts from the provider's, minus the toolchain line: consumers should not be
+# made to download this repository's toolchain, only to meet the Pulumi SDK's own minimum.
 sdk/go: ${SCHEMA_FILE}
 	rm -rf $@
 	$(PULUMI) package gen-sdk --language go ${SCHEMA_FILE} --version "${VERSION_GENERIC}"
@@ -97,11 +95,11 @@ sdk/go: ${SCHEMA_FILE}
 	cp ${PACKAGE_READMES}/go.md $$GO_PKG_DIR/README.md; \
 	cp go.mod $$GO_PKG_DIR/go.mod; \
 	cd $$GO_PKG_DIR && \
-		go mod edit -module=github.com/jflavan/pulumi-osano/sdk/go/osano && \
+		go mod edit -module=github.com/jflavan/pulumi-osano/sdk/go/osano -toolchain=none && \
 		go mod tidy
 
 .PHONY: provider
-provider: bin/${PROVIDER} bin/pulumi-gen-${PACK} # Required by CI
+provider: bin/${PROVIDER}
 
 # Provider source files to track for rebuilds
 PROVIDER_SRC := $(shell find provider -name '*.go')
@@ -113,16 +111,22 @@ bin/${PROVIDER}: $(PROVIDER_SRC)
 provider_debug:
 	(cd provider && go build -o $(WORKING_DIR)/bin/${PROVIDER} -gcflags="all=-N -l" -ldflags "-X ${PROJECT}/${VERSION_PATH}=${VERSION_GENERIC}" $(PROJECT)/${PROVIDER_PATH}/cmd/$(PROVIDER))
 
+.PHONY: test_provider
 test_provider:
-	cd provider && go test -short -race -v -count=1 -cover -timeout 2h -parallel ${TESTPARALLELISM} -coverprofile="coverage.txt" ./...
+	cd provider && go test -short $(RACE) -v -count=1 -cover -timeout 2h -parallel ${TESTPARALLELISM} -coverprofile="coverage.txt" ./...
 
+# Builds the .NET package in Release configuration: it is what `make build_dotnet` publishes.
 dotnet_sdk: sdk/dotnet
 	cd ${PACKDIR}/dotnet/&& \
 		cp ../../${PACKAGE_READMES}/dotnet.md README.md && \
 		echo "${VERSION_GENERIC}" > version.txt && \
-		dotnet build
+		dotnet build -c Release
 
-go_sdk:	sdk/go
+# Compiles the generated Go SDK and the program that consumes it through a replace directive, so a
+# release never tags a Go module version that does not compile.
+go_sdk: sdk/go
+	cd ${PACKDIR}/go/osano && go build ./... && go vet ./...
+	cd examples/quickstart/go && go build -o /dev/null .
 
 nodejs_sdk: sdk/nodejs
 	cd ${PACKDIR}/nodejs/ && \
@@ -131,7 +135,6 @@ nodejs_sdk: sdk/nodejs
 	cp ${PACKDIR}/nodejs/README.md LICENSE ${PACKDIR}/nodejs/package.json ${PACKDIR}/nodejs/yarn.lock ${PACKDIR}/nodejs/bin/
 
 python_sdk: sdk/python
-	cp ${PACKAGE_READMES}/python.md ${PACKDIR}/python/README.md
 	cd ${PACKDIR}/python/ && \
 		rm -rf ./bin/ ../python.bin/ && cp -R . ../python.bin && mv ../python.bin ./bin && \
 		python3 -m venv venv && \
@@ -139,7 +142,8 @@ python_sdk: sdk/python
 		cd ./bin && \
 		../venv/bin/python -m build .
 
-java_sdk:: PACKAGE_VERSION := $(VERSION_GENERIC)
+# The generated build.gradle reads the package version from the environment.
+java_sdk:: export PACKAGE_VERSION := $(VERSION_GENERIC)
 java_sdk:: sdk/java
 	cd sdk/java/ && \
 		gradle --console=plain build
@@ -163,18 +167,16 @@ build_quickstart_examples:
 
 build_examples: build_cookie_consent_examples build_quickstart_examples
 
-# Required for the codegen action that runs in pulumi/pulumi
-only_build:: build
-
+# lint reports, as CI does; lint_fix also rewrites files.
+.PHONY: lint lint_fix
 lint:
-	golangci-lint --path-prefix provider --config .golangci.yml run --fix
+	golangci-lint --path-prefix provider --config .golangci.yml run
 
+lint_fix:
+	golangci-lint --path-prefix provider --config .golangci.yml run --fix
 
 install:: install_nodejs_sdk install_dotnet_sdk
 	cp $(WORKING_DIR)/bin/${PROVIDER} ${GOPATH}/bin
-
-
-GO_TEST := go test -race -v -count=1 -cover -timeout 2h -parallel ${TESTPARALLELISM}
 
 # Compiles every e2e build-tag set without running it, so a broken e2e suite fails without live credentials.
 .PHONY: test_e2e_compile
@@ -195,7 +197,12 @@ test_pipeline_e2e:
 test_scripts:
 	python3 -m unittest discover -s scripts -p 'test_*.py'
 
-test_all:: test test_e2e_compile test_scripts
+# Reports known vulnerabilities reachable from the provider binary (advisory; needs network access).
+.PHONY: vulncheck
+vulncheck:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+test_all:: test test_e2e_compile test_scripts test_pipeline_e2e
 
 install_dotnet_sdk::
 	rm -rf $(WORKING_DIR)/nuget/$(NUGET_PKG_NAME).*.nupkg
@@ -217,15 +224,12 @@ install_nodejs_sdk::
 
 test:: test_provider
 
-.PHONY:local_generate
-local_generate: # Required by CI
-
 .PHONY: generate_schema
 generate_schema: ${SCHEMA_FILE} # Required by CI
 
 .PHONY: build_go install_go_sdk
 generate_go: sdk/go # Required by CI
-build_go: # Required by CI
+build_go: go_sdk # Required by CI
 
 .PHONY: build_java install_java_sdk
 generate_java: sdk/java # Required by CI
@@ -242,6 +246,3 @@ build_nodejs: nodejs_sdk # Required by CI
 .PHONY: build_dotnet install_dotnet_sdk
 generate_dotnet: sdk/dotnet # Required by CI
 build_dotnet: dotnet_sdk # Required by CI
-
-bin/pulumi-gen-${PACK}: # Required by CI
-	touch bin/pulumi-gen-${PACK}

@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -7,15 +6,64 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
 
-	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
-
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
+
+const cookieConsentRulesPath = "/v1/cookie-consent/rules"
+
+// ruleStoreTypes maps each storeType the provider accepts (the key of a rule create body) to the
+// singular type Osano reports for a rule and accepts as a list filter.
+var ruleStoreTypes = []struct{ provider, api string }{
+	{"cookies", "cookie"},
+	{"scripts", "script"},
+	{"iframes", "iframe"},
+	{"localStorage", "localStorage"},
+}
+
+var (
+	ruleClassifications = []string{"ANALYTICS", "BLACKLISTED", "ESSENTIAL", "HIDDEN", "MARKETING", "PERSONALIZATION"}
+	ruleMatchTypes      = []string{
+		"FILENAME", "DOMAIN", "PATH", "REGEXP", "STARTS_WITH", "ENDS_WITH", "CONTAINS", "EXACT_MATCH",
+	}
+)
+
+// storeTypeValues lists the storeType values in their documented order.
+func storeTypeValues() []string {
+	values := make([]string, 0, len(ruleStoreTypes))
+	for _, storeType := range ruleStoreTypes {
+		values = append(values, storeType.provider)
+	}
+	return values
+}
+
+// ruleAPIType maps a provider storeType (cookies, scripts, ...) to the singular type the list
+// endpoints filter on and rules report.
+func ruleAPIType(storeType string) (string, error) {
+	for _, candidate := range ruleStoreTypes {
+		if candidate.provider == storeType {
+			return candidate.api, nil
+		}
+	}
+	return "", fmt.Errorf("storeType must be one of: %s; got %q", strings.Join(storeTypeValues(), ", "), storeType)
+}
+
+// ruleStoreType maps the type Osano reports for a rule back to the provider's storeType.
+func ruleStoreType(responseType string) (string, error) {
+	for _, candidate := range ruleStoreTypes {
+		if candidate.api == responseType {
+			return candidate.provider, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported Cookie Consent rule type %q", responseType)
+}
 
 // CookieConsentRule manages a Cookie Consent rule within an Osano CMP configuration.
 type CookieConsentRule struct{}
@@ -48,26 +96,22 @@ func (r *CookieConsentRule) Annotate(a infer.Annotator) {
 	a.Describe(
 		r,
 		"Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. "+
-			"Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.",
+			"Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. "+
+			"An optional field the program never sets stays unmanaged: Osano's value is neither read into state "+
+			"nor cleared by an update; removing a field the program did set clears it in Osano.",
 	)
 }
 
 // Annotate documents the CookieConsentRule input fields.
 func (args *CookieConsentRuleArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.ConfigID, "The configId of the Cookie Consent Configuration this rule belongs to.")
-	a.Describe(&args.StoreType, "The storage type category: cookies, scripts, iframes, or localStorage.")
-	a.Describe(
-		&args.Classification,
-		"Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.",
-	)
+	a.Describe(&args.StoreType, "The storage type category: "+strings.Join(storeTypeValues(), ", ")+".")
+	a.Describe(&args.Classification, "Classification: "+strings.Join(ruleClassifications, ", ")+".")
 	a.Describe(&args.Rule, "The rule pattern (e.g. a cookie name pattern). Min 3, max 1000 characters.")
 	a.Describe(&args.Disclosure, "Whether the rule should be disclosed. Defaults to false.")
 	a.Describe(&args.Title, "Optional title for the rule, used in consent disclosure. Max 64 characters.")
 	a.Describe(&args.VendorName, "Optional vendor name for the rule. Max 100 characters.")
-	a.Describe(
-		&args.RuleType,
-		"Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.",
-	)
+	a.Describe(&args.RuleType, "Optional matching mode: "+strings.Join(ruleMatchTypes, ", ")+".")
 	a.Describe(&args.Description, "Optional cookie description. Only supported for cookies; max 1000 characters.")
 	a.Describe(&args.Expiry, "Optional cookie expiry description. Only supported for cookies; max 50 characters.")
 }
@@ -102,33 +146,6 @@ type cmpRulesListResponse struct {
 	Next  string            `json:"next"`
 }
 
-var validClassifications = map[string]bool{
-	"ANALYTICS":       true,
-	"BLACKLISTED":     true,
-	"ESSENTIAL":       true,
-	"HIDDEN":          true,
-	"MARKETING":       true,
-	"PERSONALIZATION": true,
-}
-
-var validStoreTypes = map[string]bool{
-	"cookies":      true,
-	"scripts":      true,
-	"iframes":      true,
-	"localStorage": true,
-}
-
-var validRuleTypes = map[string]bool{
-	"FILENAME":    true,
-	"DOMAIN":      true,
-	"PATH":        true,
-	"REGEXP":      true,
-	"STARTS_WITH": true,
-	"ENDS_WITH":   true,
-	"CONTAINS":    true,
-	"EXACT_MATCH": true,
-}
-
 // Check validates CookieConsentRule inputs before create or update.
 func (r *CookieConsentRule) Check(
 	ctx context.Context, req infer.CheckRequest,
@@ -141,83 +158,60 @@ func (r *CookieConsentRule) Check(
 	propertyKnown := func(name string) bool {
 		return !req.NewInputs.Get(name).HasComputed()
 	}
+	fail := func(property, reason string) {
+		failures = append(failures, p.CheckFailure{Property: property, Reason: reason})
+	}
 	storeTypeKnown := propertyKnown("storeType")
 
 	if propertyKnown("configId") && args.ConfigID == "" {
-		failures = append(failures, p.CheckFailure{Property: "configId", Reason: "configId is required"})
+		fail("configId", "configId is required")
 	}
-	if storeTypeKnown && args.StoreType == "" {
-		failures = append(failures, p.CheckFailure{Property: "storeType", Reason: "storeType is required"})
-	} else if storeTypeKnown && !validStoreTypes[args.StoreType] {
-		failures = append(
-			failures,
-			p.CheckFailure{
-				Property: "storeType",
-				Reason:   "storeType must be one of: cookies, scripts, iframes, localStorage",
-			},
-		)
+	switch {
+	case !storeTypeKnown:
+	case args.StoreType == "":
+		fail("storeType", "storeType is required")
+	case !slices.Contains(storeTypeValues(), args.StoreType):
+		fail("storeType", "storeType must be one of: "+strings.Join(storeTypeValues(), ", "))
 	}
-	if propertyKnown("classification") && args.Classification == "" {
-		failures = append(failures, p.CheckFailure{Property: "classification", Reason: "classification is required"})
-	} else if propertyKnown("classification") && !validClassifications[args.Classification] {
-		failures = append(
-			failures,
-			p.CheckFailure{
-				Property: "classification",
-				Reason:   "classification must be one of: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION",
-			},
-		)
+	switch {
+	case !propertyKnown("classification"):
+	case args.Classification == "":
+		fail("classification", "classification is required")
+	case !slices.Contains(ruleClassifications, args.Classification):
+		fail("classification", "classification must be one of: "+strings.Join(ruleClassifications, ", "))
 	}
 	switch {
 	case !propertyKnown("rule"):
 	case args.Rule == "":
-		failures = append(failures, p.CheckFailure{Property: "rule", Reason: "rule is required"})
+		fail("rule", "rule is required")
 	case utf8.RuneCountInString(args.Rule) < 3:
-		failures = append(failures, p.CheckFailure{Property: "rule", Reason: "rule must be at least 3 characters"})
+		fail("rule", "rule must be at least 3 characters")
 	case utf8.RuneCountInString(args.Rule) > 1000:
-		failures = append(failures, p.CheckFailure{Property: "rule", Reason: "rule must be at most 1000 characters"})
+		fail("rule", "rule must be at most 1000 characters")
 	}
 	if propertyKnown("title") && args.Title != nil && utf8.RuneCountInString(*args.Title) > 64 {
-		failures = append(failures, p.CheckFailure{Property: "title", Reason: "title must be at most 64 characters"})
+		fail("title", "title must be at most 64 characters")
 	}
 	if propertyKnown("vendorName") && args.VendorName != nil && utf8.RuneCountInString(*args.VendorName) > 100 {
-		failures = append(
-			failures,
-			p.CheckFailure{Property: "vendorName", Reason: "vendorName must be at most 100 characters"},
-		)
+		fail("vendorName", "vendorName must be at most 100 characters")
 	}
-	if propertyKnown("ruleType") && args.RuleType != nil && !validRuleTypes[*args.RuleType] {
-		failures = append(
-			failures,
-			p.CheckFailure{
-				Property: "ruleType",
-				Reason:   "ruleType must be one of: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH",
-			},
-		)
+	if propertyKnown("ruleType") && args.RuleType != nil && !slices.Contains(ruleMatchTypes, *args.RuleType) {
+		fail("ruleType", "ruleType must be one of: "+strings.Join(ruleMatchTypes, ", "))
 	}
 	if propertyKnown("description") && args.Description != nil {
 		if utf8.RuneCountInString(*args.Description) > 1000 {
-			failures = append(
-				failures,
-				p.CheckFailure{Property: "description", Reason: "description must be at most 1000 characters"},
-			)
+			fail("description", "description must be at most 1000 characters")
 		}
 		if storeTypeKnown && args.StoreType != "cookies" {
-			failures = append(
-				failures,
-				p.CheckFailure{Property: "description", Reason: "description is only supported for cookies"},
-			)
+			fail("description", "description is only supported for cookies")
 		}
 	}
 	if propertyKnown("expiry") && args.Expiry != nil {
 		if utf8.RuneCountInString(*args.Expiry) > 50 {
-			failures = append(failures, p.CheckFailure{Property: "expiry", Reason: "expiry must be at most 50 characters"})
+			fail("expiry", "expiry must be at most 50 characters")
 		}
 		if storeTypeKnown && args.StoreType != "cookies" {
-			failures = append(
-				failures,
-				p.CheckFailure{Property: "expiry", Reason: "expiry is only supported for cookies"},
-			)
+			fail("expiry", "expiry is only supported for cookies")
 		}
 	}
 
@@ -229,22 +223,24 @@ func (r *CookieConsentRule) Create(
 	ctx context.Context, req infer.CreateRequest[CookieConsentRuleArgs],
 ) (infer.CreateResponse[CookieConsentRuleState], error) {
 	if req.DryRun {
-		return infer.CreateResponse[CookieConsentRuleState]{ID: "preview"}, nil
+		// The inputs are known, so a preview shows them; the server-assigned ID and timestamps stay unknown.
+		return infer.CreateResponse[CookieConsentRuleState]{
+			Output: CookieConsentRuleState{CookieConsentRuleArgs: req.Inputs},
+		}, nil
 	}
 
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.CreateResponse[CookieConsentRuleState]{}, err
 	}
 
 	body := map[string]any{
 		"configIds":          []string{req.Inputs.ConfigID},
-		req.Inputs.StoreType: []any{cookieConsentRulePayload(req.Inputs, false)},
+		req.Inputs.StoreType: []any{cookieConsentRulePayload(req.Inputs, CookieConsentRuleArgs{})},
 	}
 
 	var out cmpRulesListResponse
-	if err := client.DoJSON(ctx, http.MethodPost, "/v1/cookie-consent/rules", nil, body, &out); err != nil {
+	if err := client.DoJSON(ctx, http.MethodPost, cookieConsentRulesPath, nil, body, &out); err != nil {
 		return infer.CreateResponse[CookieConsentRuleState]{}, fmt.Errorf("create rule: %w", err)
 	}
 	if len(out.Items) == 0 {
@@ -263,18 +259,18 @@ func (r *CookieConsentRule) Create(
 func (r *CookieConsentRule) Read(
 	ctx context.Context, req infer.ReadRequest[CookieConsentRuleArgs, CookieConsentRuleState],
 ) (infer.ReadResponse[CookieConsentRuleArgs, CookieConsentRuleState], error) {
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.ReadResponse[CookieConsentRuleArgs, CookieConsentRuleState]{}, err
 	}
 
-	configID, ruleID, _, err := parseRuleResourceID(req.ID, req.State.ConfigID)
+	configID, ruleID, err := parseRuleResourceID(req.ID)
 	if err != nil {
 		return infer.ReadResponse[CookieConsentRuleArgs, CookieConsentRuleState]{}, err
 	}
 
-	item, found, err := findCookieConsentRule(ctx, client, configID, ruleID)
+	// A refresh knows the store type and lists only that type; an import (empty inputs) scans every type.
+	item, found, err := findCookieConsentRule(ctx, client, configID, ruleID, req.Inputs.StoreType)
 	if osanoclient.IsHTTPStatus(err, http.StatusNotFound) {
 		return infer.ReadResponse[CookieConsentRuleArgs, CookieConsentRuleState]{ID: ""}, nil
 	}
@@ -307,13 +303,12 @@ func (r *CookieConsentRule) Update(
 		return infer.UpdateResponse[CookieConsentRuleState]{Output: preview}, nil
 	}
 
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.UpdateResponse[CookieConsentRuleState]{}, err
 	}
 
-	_, ruleID, _, err := parseRuleResourceID(req.ID, req.State.ConfigID)
+	_, ruleID, err := parseRuleResourceID(req.ID)
 	if err != nil {
 		return infer.UpdateResponse[CookieConsentRuleState]{}, err
 	}
@@ -322,9 +317,9 @@ func (r *CookieConsentRule) Update(
 	if err := client.DoJSON(
 		ctx,
 		http.MethodPatch,
-		"/v1/cookie-consent/rules/"+strconv.Itoa(ruleID),
+		cookieConsentRulePath(ruleID),
 		nil,
-		cookieConsentRulePayload(req.Inputs, true),
+		cookieConsentRulePayload(req.Inputs, req.State.CookieConsentRuleArgs),
 		&out,
 	); err != nil {
 		return infer.UpdateResponse[CookieConsentRuleState]{}, fmt.Errorf("update rule: %w", err)
@@ -358,24 +353,16 @@ func (r *CookieConsentRule) WireDependencies(
 func (r *CookieConsentRule) Delete(
 	ctx context.Context, req infer.DeleteRequest[CookieConsentRuleState],
 ) (infer.DeleteResponse, error) {
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.DeleteResponse{}, err
 	}
-	_, ruleID, _, err := parseRuleResourceID(req.ID, req.State.ConfigID)
+	_, ruleID, err := parseRuleResourceID(req.ID)
 	if err != nil {
 		return infer.DeleteResponse{}, err
 	}
 
-	err = client.DoJSON(
-		ctx,
-		http.MethodDelete,
-		"/v1/cookie-consent/rules/"+strconv.Itoa(ruleID),
-		nil,
-		nil,
-		nil,
-	)
+	err = client.DoJSON(ctx, http.MethodDelete, cookieConsentRulePath(ruleID), nil, nil, nil)
 	if osanoclient.IsHTTPStatus(err, http.StatusNotFound) {
 		return infer.DeleteResponse{}, nil
 	}
@@ -407,20 +394,16 @@ func (r *CookieConsentRule) Diff(
 	if req.Inputs.Disclosure != req.State.Disclosure {
 		diff["disclosure"] = p.PropertyDiff{Kind: p.Update}
 	}
-	if !ptrStringEqual(req.Inputs.Title, req.State.Title) {
-		diff["title"] = p.PropertyDiff{Kind: p.Update}
-	}
-	if !ptrStringEqual(req.Inputs.VendorName, req.State.VendorName) {
-		diff["vendorName"] = p.PropertyDiff{Kind: p.Update}
-	}
-	if !ptrStringEqual(req.Inputs.RuleType, req.State.RuleType) {
-		diff["ruleType"] = p.PropertyDiff{Kind: p.Update}
-	}
-	if !ptrStringEqual(req.Inputs.Description, req.State.Description) {
-		diff["description"] = p.PropertyDiff{Kind: p.Update}
-	}
-	if !ptrStringEqual(req.Inputs.Expiry, req.State.Expiry) {
-		diff["expiry"] = p.PropertyDiff{Kind: p.Update}
+	for key, values := range map[string][2]*string{
+		"title":       {req.Inputs.Title, req.State.Title},
+		"vendorName":  {req.Inputs.VendorName, req.State.VendorName},
+		"ruleType":    {req.Inputs.RuleType, req.State.RuleType},
+		"description": {req.Inputs.Description, req.State.Description},
+		"expiry":      {req.Inputs.Expiry, req.State.Expiry},
+	} {
+		if !ptrStringEqual(values[0], values[1]) {
+			diff[key] = p.PropertyDiff{Kind: p.Update}
+		}
 	}
 
 	return infer.DiffResponse{
@@ -483,110 +466,87 @@ func cookieConsentRuleArgsFromResponse(
 	return args, nil
 }
 
-type jsonClient interface {
-	DoJSON(context.Context, string, string, url.Values, any, any) error
-}
-
-func cookieConsentRulePayload(args CookieConsentRuleArgs, includeNulls bool) map[string]any {
+// cookieConsentRulePayload builds the create or update request body. An optional field is sent as
+// JSON null only to clear a value the program previously managed (previous is the prior state's
+// inputs, or zero on create). A field the program never declared is omitted, so Osano's default or
+// a value set in the dashboard stays unmanaged, as Create and Read already treat it.
+func cookieConsentRulePayload(args, previous CookieConsentRuleArgs) map[string]any {
 	payload := map[string]any{
 		"classification": args.Classification,
 		"rule":           args.Rule,
 		"disclosure":     args.Disclosure,
 	}
-	putNullable := func(key string, value *string) {
+	putNullable := func(key string, value, previousValue *string) {
 		if value != nil {
 			payload[key] = *value
-		} else if includeNulls {
+		} else if previousValue != nil {
 			payload[key] = nil
 		}
 	}
-	putNullable("title", args.Title)
-	putNullable("vendorName", args.VendorName)
-	putNullable("ruleType", args.RuleType)
+	putNullable("title", args.Title, previous.Title)
+	putNullable("vendorName", args.VendorName, previous.VendorName)
+	putNullable("ruleType", args.RuleType, previous.RuleType)
 	if args.StoreType == "cookies" {
-		putNullable("description", args.Description)
-		putNullable("expiry", args.Expiry)
+		putNullable("description", args.Description, previous.Description)
+		putNullable("expiry", args.Expiry, previous.Expiry)
 	}
 	return payload
+}
+
+func cookieConsentRulePath(ruleID int) string {
+	return cookieConsentRulesPath + "/" + strconv.Itoa(ruleID)
 }
 
 func canonicalRuleID(configID string, ruleID int) string {
 	return fmt.Sprintf("%s/%d", configID, ruleID)
 }
 
-func parseRuleResourceID(id, stateConfigID string) (configID string, ruleID int, canonicalID string, err error) {
-	ruleIDText := id
-	if separator := strings.LastIndex(id, "/"); separator >= 0 {
-		configID = id[:separator]
-		ruleIDText = id[separator+1:]
-		if configID == "" {
-			return "", 0, "", fmt.Errorf("invalid Cookie Consent rule ID %q: config ID is required", id)
-		}
-	} else {
-		configID = stateConfigID
-		if configID == "" {
-			return "", 0, "", fmt.Errorf("invalid legacy Cookie Consent rule ID %q: configId is required in state", id)
-		}
+// parseRuleResourceID splits the composite `<configId>/<ruleId>` resource ID.
+func parseRuleResourceID(id string) (configID string, ruleID int, err error) {
+	separator := strings.LastIndex(id, "/")
+	if separator < 0 {
+		return "", 0, fmt.Errorf("invalid Cookie Consent rule ID %q: expected <configId>/<ruleId>", id)
 	}
-
+	configID, ruleIDText := id[:separator], id[separator+1:]
+	if configID == "" {
+		return "", 0, fmt.Errorf("invalid Cookie Consent rule ID %q: config ID is required", id)
+	}
 	ruleID, err = strconv.Atoi(ruleIDText)
 	if err != nil || ruleIDText == "" {
-		return "", 0, "", fmt.Errorf("invalid Cookie Consent rule ID %q: rule ID must be an integer", id)
+		return "", 0, fmt.Errorf("invalid Cookie Consent rule ID %q: rule ID must be an integer", id)
 	}
-	return configID, ruleID, canonicalRuleID(configID, ruleID), nil
+	return configID, ruleID, nil
 }
 
-func ruleStoreType(responseType string) (string, error) {
-	switch responseType {
-	case "cookie":
-		return "cookies", nil
-	case "script":
-		return "scripts", nil
-	case "iframe":
-		return "iframes", nil
-	case "localStorage":
-		return "localStorage", nil
-	default:
-		return "", fmt.Errorf("unsupported Cookie Consent rule type %q", responseType)
-	}
-}
-
+// findCookieConsentRule looks a rule up in its configuration's rule list, the only lookup Osano
+// offers. storeType, when known, narrows the listing to that type.
 func findCookieConsentRule(
-	ctx context.Context, client jsonClient, configID string, ruleID int,
+	ctx context.Context, client jsonClient, configID string, ruleID int, storeType string,
 ) (cmpRuleResponse, bool, error) {
-	cursor := ""
-	seenCursors := map[string]bool{}
-	for {
-		query := url.Values{"limit": []string{"500"}}
-		if cursor != "" {
-			query.Set("next", cursor)
-		}
-
-		var out cmpRulesListResponse
-		if err := client.DoJSON(
-			ctx,
-			http.MethodGet,
-			"/v1/cookie-consent/configs/"+url.PathEscape(configID)+"/rules",
-			query,
-			nil,
-			&out,
-		); err != nil {
+	query := url.Values{"limit": []string{strconv.Itoa(cookieConsentRulesPageSize)}}
+	if storeType != "" {
+		apiType, err := ruleAPIType(storeType)
+		if err != nil {
 			return cmpRuleResponse{}, false, err
 		}
-		for idx := range out.Items {
-			if out.Items[idx].RuleID == ruleID {
-				return out.Items[idx], true, nil
-			}
-		}
-		if out.Next == "" {
-			return cmpRuleResponse{}, false, nil
-		}
-		if seenCursors[out.Next] {
-			return cmpRuleResponse{}, false, fmt.Errorf("Cookie Consent rule pagination returned repeated cursor %q", out.Next)
-		}
-		seenCursors[out.Next] = true
-		cursor = out.Next
+		query.Set("type", apiType)
 	}
+	var found cmpRuleResponse
+	matched := false
+	err := paginateCustomerList(ctx, client, cookieConsentConfigPath(configID)+"/rules", query,
+		func(page []cmpRuleResponse) bool {
+			for idx := range page {
+				if page[idx].RuleID == ruleID {
+					found, matched = page[idx], true
+					return false
+				}
+			}
+			return true
+		})
+	if err != nil {
+		return cmpRuleResponse{}, false, err
+	}
+	return found, matched, nil
 }
 
 func ptrStringEqual(a, b *string) bool {

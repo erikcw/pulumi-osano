@@ -107,19 +107,35 @@ def patch_build_gradle(filepath: str) -> None:
         count=1
     )
 
-    # Fix URL placeholders
-    content = content.replace(
-        'url = "https://example.com"',
-        'url = "https://github.com/jflavan/pulumi-osano"'
+    # Fix the SCM block. The generator fills it from the schema's repository URL in a form that is
+    # neither a Maven scm: URL nor a valid SSH URL (git@github.com/owner/repo.git), so every value is
+    # rewritten regardless of what the generator emitted; a missing block is an error.
+    content, scm_count = re.subn(
+        r'(scm \{[^}]*?)url = "[^"]*"',
+        r'\1url = "https://github.com/jflavan/pulumi-osano"',
+        content,
+        count=1,
+        flags=re.DOTALL,
     )
-    content = content.replace(
-        'connection = "https://example.com"',
-        'connection = "scm:git:git://github.com/jflavan/pulumi-osano.git"'
+    content, connection_count = re.subn(
+        r'(scm \{[^}]*?[^A-Za-z])connection = "[^"]*"',
+        r'\1connection = "scm:git:https://github.com/jflavan/pulumi-osano.git"',
+        content,
+        count=1,
+        flags=re.DOTALL,
     )
-    content = content.replace(
-        'developerConnection = "https://example.com"',
-        'developerConnection = "scm:git:ssh://github.com:jflavan/pulumi-osano.git"'
+    content, developer_connection_count = re.subn(
+        r'(scm \{[^}]*?)developerConnection = "[^"]*"',
+        r'\1developerConnection = "scm:git:ssh://git@github.com/jflavan/pulumi-osano.git"',
+        content,
+        count=1,
+        flags=re.DOTALL,
     )
+    if not (scm_count and connection_count and developer_connection_count):
+        raise PatchError(
+            "Failed to patch the scm { url, connection, developerConnection } block in build.gradle; "
+            f"the generator output may have changed. File: {filepath}"
+        )
 
     # Fix license block - need to be careful not to match the pom name
     # First fix license name
@@ -195,7 +211,7 @@ if (publishRepoUsername) {
 
     # Report what was done
     if content == original_content:
-        print(f"No changes needed for {filepath} (already patched)")
+        print(f"{filepath} was already patched")
     else:
         print(f"Successfully patched {filepath}")
 

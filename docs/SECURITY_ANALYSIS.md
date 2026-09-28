@@ -4,26 +4,34 @@ The provider calls two Osano APIs on behalf of your Pulumi program: the Customer
 
 ## Credentials
 
-- Two independent headers exist:
-  - `x-osano-api-key` (`osano:osanoApiKey` / `OSANO_API_KEY`): Customer REST API Cookie Consent operations and functions, plus the subject send-code/verify routes.
-  - `x-uc-api-key` (`osano:unifiedConsentApiKey` / `OSANO_UC_API_KEY`): Unified Consent submission and lookup routes. The subject send-code/verify routes send every configured key, because Osano's guide and its OpenAPI spec name different keys for them.
-- Store both with `pulumi config set osano:... --secret`. CI/CD can inject them through `OSANO_API_KEY` and `OSANO_UC_API_KEY`; environment variables take precedence over stack config.
-- Rotate keys regularly. The provider reads configuration fresh on every Pulumi operation, so the next `pulumi preview`, `up`, or `refresh` uses the rotated value.
+- Two independent keys exist, each sent as a request header:
+  - `x-osano-api-key` (`osano:osanoApiKey` / `OSANO_API_KEY`): the Cookie Consent resources and functions, plus the subject send-code and verify routes.
+  - `x-uc-api-key` (`osano:unifiedConsentApiKey` / `OSANO_UC_API_KEY`): the `Consent` resource and the Unified Consent lookups. The subject send-code and verify routes send every configured key, because Osano's guide and its OpenAPI spec name different keys for them.
+- Store both with `pulumi config set osano:... --secret`. CI/CD can inject them through `OSANO_API_KEY` and `OSANO_UC_API_KEY`. An environment variable is used only when the stack does not configure the key, and the provider warns when both are set and differ, so an exported key cannot silently point a stack at another account.
+- Rotate keys regularly. The provider resolves its configuration on every Pulumi operation, so the next `pulumi preview`, `up`, or `refresh` uses the rotated value, and rotating a key never replaces a resource.
+- The keys are secrets in the provider's state and never appear in error messages or logs.
 
 ## Network Access
 
-- Cookie Consent requests go to `https://api.osano.com` unless you override `osano:customerBaseUrl`.
-- Unified Consent requests go to `https://uc.api.osano.com` unless you override `osano:apiBaseUrl` or set `OSANO_API_BASE_URL`. Osano serves the Unified Consent API only from that host and routes regional processing internally (`us-east-1` for the US, `eu-central-1` for everything else).
-- The provider honors standard proxy variables (`HTTPS_PROXY`, `NO_PROXY`) because it uses the default Go HTTP transport.
+- Cookie Consent requests go to `https://api.osano.com` and Unified Consent requests to `https://uc.api.osano.com` unless `osano:customerBaseUrl` (`OSANO_CUSTOMER_BASE_URL`) or `osano:apiBaseUrl` (`OSANO_API_BASE_URL`) overrides them.
+- A base URL must use `https`; `http` is accepted only for loopback hosts, as used by local mocks. Any other plain-`http` URL is rejected when the provider is configured, because the keys travel in headers.
+- The HTTP client does not follow redirects, so a key is never re-sent to a host a response chose, and it reads at most 8 MiB of any response.
+- Each request attempt times out after `requestTimeoutSeconds` (60 by default, at most 3600). Retries are bounded (three, honoring `Retry-After` up to one minute), and no POST other than the publish request is retried after a `5xx`, so the provider never submits a consent or creates a configuration or rule twice. [performance.md](performance.md#throughput) has the retry matrix.
+- The provider uses Go's default HTTP transport, so it honors the standard proxy variables (`HTTPS_PROXY`, `NO_PROXY`) and requires TLS 1.2 or later.
 
 ## Data in Transit and at Rest
 
-- Consent payloads contain subject identifiers and potentially IP addresses or tags. They exist in memory inside the provider and in flight to Osano. Without `countryCodeOverride` and `regionCodeOverride`, Osano geolocates the caller's IP address, which in a pipeline is the CI runner's.
-- Pulumi state stores the arguments you provide. Do not put subject secrets into plain-text config or resource inputs.
-- The schema marks these values secret: `verifySubjectCode.code`, the SMS `session` of `sendSubjectCode` and `verifySubjectCode`, `Consent.sessionToken`, `getSession.sessionId`, the `destination` output of both verification functions, `verifySubjectCode.profile`, and the personal-data outputs of `getSubjectProfile` (`email`, `profile`) and `getSession` (`profile`). The email addresses and phone numbers passed to the verification functions are plain inputs, so prefer calling those functions from automation rather than long-lived stacks.
+- Consent payloads contain subject identifiers and possibly IP addresses or tags. They exist in memory inside the provider and in flight to Osano. Without `countryCodeOverride` and `regionCodeOverride`, Osano geolocates the caller's IP address, which in a pipeline is the CI runner's.
+- Pulumi state stores the inputs and outputs of every resource. The schema marks the personal data and credentials the provider handles as secret, so Pulumi encrypts them in state and masks them in output. The schema (`provider/cmd/pulumi-resource-osano/schema.json`, properties with `"secret": true`) is the complete list. In summary:
+  - the provider's API keys;
+  - `Consent.subject` and `Consent.sessionToken`;
+  - the subject references, subject IDs, verified and anonymous IDs, session IDs, consent records, conflicts, and profiles that `getUnifiedConsent`, `getSubject`, `getSubjectProfile`, `getSession`, `checkConsent`, and `getConsentProfile` take and return;
+  - the `email`, `phone`, `code`, `session`, `destination`, `profile`, and `verifiedId` values of `sendSubjectCode` and `verifySubjectCode`;
+  - `CookieConsentPublication.webhookUrl`. Osano calls it without authentication and does not document or sign the payload, so the URL is the only protection: use an unguessable URL and treat the call only as a signal to check the configuration, for example with `getCookieConsentAuditLog`.
+- `Consent.attributes` and `Consent.tags` are not secret. Do not put personal data in them, or mark them secret in the program.
 - `getCookieConsentAuditLog` returns the email address of the Osano user behind each event (`actor`), which is not marked secret.
-- `CookieConsentPublication.webhookUrl` is marked secret. Osano calls it without authentication and does not document or sign the payload, so use an unguessable URL and treat the call only as a signal to check the configuration, for example with `getCookieConsentAuditLog`.
 - `CookieConsentPublication.scriptSrc` and `scriptTag`, and the same outputs of `getCookieConsentConfig` and `getCookieConsentConfigs`, are public values intended for your site's HTML and are not secret.
+- Error messages never include the request path or query, which can hold a session ID, and error responses from the subject verification routes are withheld, because they can echo the subject's email address or phone number. Other error bodies are reported, cut at 2 KiB, so a validation failure can be diagnosed; they can contain the identifiers of the request. Redact them before sharing logs, as [logging.md](logging.md) describes.
 
 ## Website Integration
 
@@ -39,12 +47,8 @@ The provider calls two Osano APIs on behalf of your Pulumi program: the Customer
 ## Supply Chain
 
 - The SDKs set `pluginDownloadURL` to `github://api.github.com/jflavan/pulumi-osano`, so Pulumi downloads the provider plugin from this repository's GitHub releases.
-- Each release archive and its SBOM carry a GitHub build provenance attestation. Verify an archive before you trust it with `gh attestation verify pulumi-resource-osano-vX.Y.Z-linux-amd64.tar.gz --owner jflavan`.
-- [PUBLISHING.md](PUBLISHING.md) lists every package, how it is published, and how to verify its provenance or signature.
-
-## Future Work
-
-- Add support for customer-managed encryption headers when Osano exposes them.
-- Expose a read-only provider configuration that restricts mutation routes for read-heavy workloads.
+- Each release archive, its SBOM, and the NuGet package carry a GitHub build provenance attestation. Verify a file before you trust it with `gh attestation verify <file> --owner jflavan`. [PUBLISHING.md](PUBLISHING.md) lists every package, how it is published, and how to verify its provenance or signature.
+- A release publishes only after lint, the unit tests, the e2e compilation, and the engine-level pipeline suite pass. Every third-party GitHub Action is pinned to a commit SHA, Dependabot proposes updates for every package ecosystem in the repository, and CodeQL scans the provider, the SDKs, the examples, and the workflows on every pull request.
+- `make vulncheck` runs `govulncheck` against the provider's dependencies. As of this writing it reports `GO-2026-6443` in `google.golang.org/grpc`: a gRPC server can be made to panic by a request without an authority or Host header. The provider's gRPC server listens on a loopback port that only the Pulumi engine on the same machine connects to, so the exposure is a local crash of the provider process during a Pulumi run, by a process that can already reach that port. No released grpc version contains the fix yet (it is in a `v1.85.0-dev` pre-release); the dependency comes from the Pulumi SDK and is updated with it.
 
 For vulnerability disclosures see [SECURITY.md](../SECURITY.md).

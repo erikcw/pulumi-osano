@@ -23,7 +23,7 @@ func GetSubjectProfile(ctx *pulumi.Context, args *GetSubjectProfileArgs, opts ..
 }
 
 type GetSubjectProfileArgs struct {
-	// The subject ID whose profile is returned.
+	// The subject ID whose profile is returned. Secret, because it identifies a person.
 	SubjectId string `pulumi:"subjectId"`
 }
 
@@ -34,7 +34,7 @@ type GetSubjectProfileResult struct {
 	Exists bool `pulumi:"exists"`
 	// The complete profile Osano returned. Secret, because it is personal data.
 	Profile map[string]interface{} `pulumi:"profile"`
-	// The subject ID that was looked up.
+	// The subject ID that was looked up. Secret, because it identifies a person.
 	SubjectId string `pulumi:"subjectId"`
 }
 
@@ -44,7 +44,7 @@ func GetSubjectProfileOutput(ctx *pulumi.Context, args GetSubjectProfileOutputAr
 }
 
 type GetSubjectProfileOutputArgs struct {
-	// The subject ID whose profile is returned.
+	// The subject ID whose profile is returned. Secret, because it identifies a person.
 	SubjectId pulumi.StringInput `pulumi:"subjectId"`
 }
 
@@ -81,7 +81,7 @@ func (o GetSubjectProfileResultOutput) Profile() pulumi.MapOutput {
 	return o.ApplyT(func(v GetSubjectProfileResult) map[string]interface{} { return v.Profile }).(pulumi.MapOutput)
 }
 
-// The subject ID that was looked up.
+// The subject ID that was looked up. Secret, because it identifies a person.
 func (o GetSubjectProfileResultOutput) SubjectId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSubjectProfileResult) string { return v.SubjectId }).(pulumi.StringOutput)
 }

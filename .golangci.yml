@@ -19,7 +19,6 @@ linters:
     - misspell
     - nakedret
     - nolintlint
-    - paralleltest
     - perfsprint
     - prealloc
     - revive
@@ -38,13 +37,6 @@ linters:
       disabled-checks:
         - hugeParam
         - importShadow
-    goheader:
-      template: |-
-        Copyright 2026, John Flavan.
-        SPDX-License-Identifier: MIT
-
-        This is an unofficial, community-maintained Pulumi provider for Osano's Unified Consent API.
-        Not affiliated with, endorsed by, or supported by Pulumi Corporation or Osano, Inc.
     govet:
       enable:
         - nilness
@@ -59,10 +51,10 @@ linters:
       # Default: 30
       max-func-lines: 60
     nolintlint:
-      # Some linter exclusions are added to generated or templated files
-      # pre-emptively.
-      # Don't complain about these.
-      allow-unused: true
+      # A nolint directive that no longer silences anything is reported, so stale ones get removed.
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
   exclusions:
     rules:
       # Don't warn on unused parameters.
@@ -84,12 +76,6 @@ linters:
       - linters: [revive]
         text: "redefines-builtin-id: redefinition of the built-in function new"
 
-      # Exclude paralleltest for test files that use shared global state
-      # (mock URL variables, environment variables) which makes them unsafe
-      # to parallelize without significant refactoring.
-      - linters: [paralleltest]
-        path: "_test\\.go$"
-
       # Internal E2E helpers are not part of the public provider surface.
       # Requiring exported API docs for these packages adds noise without
       # improving user-facing maintainability.
@@ -107,5 +93,5 @@ formatters:
         - blank # Blank section: contains all blank imports.
         - default # Default section: contains all imports that could not be matched to another section type.
         - prefix(github.com/pulumi/) # Custom section: groups all imports with the github.com/pulumi/ prefix.
-        - prefix(github.com/pulumi/pulumi-dockerbuild/) # Custom section: local imports
+        - prefix(github.com/jflavan/pulumi-osano/) # Custom section: this module's own packages.
       custom-order: true

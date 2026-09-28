@@ -15,14 +15,14 @@ public final class SendSubjectCodePlainArgs extends com.pulumi.resources.InvokeA
     public static final SendSubjectCodePlainArgs Empty = new SendSubjectCodePlainArgs();
 
     /**
-     * Email address to send the code to. Set exactly one of email or phone.
+     * Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="email")
     private @Nullable String email;
 
     /**
-     * @return Email address to send the code to. Set exactly one of email or phone.
+     * @return Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<String> email() {
@@ -45,14 +45,14 @@ public final class SendSubjectCodePlainArgs extends com.pulumi.resources.InvokeA
     }
 
     /**
-     * Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="phone")
     private @Nullable String phone;
 
     /**
-     * @return Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * @return Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<String> phone() {
@@ -86,7 +86,7 @@ public final class SendSubjectCodePlainArgs extends com.pulumi.resources.InvokeA
         }
 
         /**
-         * @param email Email address to send the code to. Set exactly one of email or phone.
+         * @param email Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -108,7 +108,7 @@ public final class SendSubjectCodePlainArgs extends com.pulumi.resources.InvokeA
         }
 
         /**
-         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone.
+         * @param phone Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *

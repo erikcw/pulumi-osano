@@ -31,7 +31,7 @@ export interface GetSessionResult {
      */
     readonly profile: {[key: string]: any};
     /**
-     * The verified ID of the session's subject.
+     * The verified ID of the session's subject. Secret, because it identifies a person.
      */
     readonly verifiedId: string;
 }

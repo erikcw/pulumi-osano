@@ -3,126 +3,92 @@
 package e2e
 
 import (
-	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/jflavan/pulumi-osano/tests/e2e/internal/api"
+	"github.com/pulumi/pulumi/sdk/v3/go/property"
+
 	"github.com/jflavan/pulumi-osano/tests/e2e/internal/testenv"
 )
 
 func TestUnifiedConsentLookups(t *testing.T) {
 	testenv.RequireOptIn(t, testenv.EnvRunConsentE2E, "enable unified consent read tests")
-
-	client, err := api.NewClientFromEnv(false)
-	if err != nil {
-		t.Fatalf("unable to initialize API client: %v", err)
-	}
+	server := providerServer(t)
 
 	subjectRef := testenv.Require(t, testenv.EnvTestSubjectRef, "subject reference value")
 	referenceType := testenv.Optional(testenv.EnvTestReferenceType, "subject")
 	configID := testenv.Require(t, testenv.EnvTestConfigID, "configuration identifier")
 	hashedSubjectID := testenv.Require(t, testenv.EnvTestHashedSubjectID, "hashed subject identifier")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	payload, found, err := client.FetchUnifiedConsent(ctx, subjectRef, referenceType)
-	if err != nil {
-		t.Fatalf("fetch unified consent failed: %v", err)
-	}
-	if !found {
+	unified := invoke(t, server, "getUnifiedConsent", map[string]property.Value{
+		"subjectRef": property.New(subjectRef), "referenceType": property.New(referenceType),
+	})
+	if !boolOutput(t, unified, "exists") {
 		t.Fatalf("no unified consent returned for %s (%s)", subjectRef, referenceType)
 	}
-	if payload.UnifiedConsent == nil {
-		t.Fatalf("unified consent payload missing subject data")
+	if consent := mapOutput(t, unified, "unifiedConsent"); stringOutput(t, consent, "subjectId") == "" {
+		t.Fatal("unified consent payload missing the subject ID")
 	}
 
-	subject, found, err := client.FetchSubject(ctx, subjectRef, referenceType)
-	if err != nil {
-		t.Fatalf("fetch subject failed: %v", err)
-	}
-	if !found {
+	subject := invoke(t, server, "getSubject", map[string]property.Value{
+		"subjectRef": property.New(subjectRef), "referenceType": property.New(referenceType),
+	})
+	if !boolOutput(t, subject, "exists") {
 		t.Fatalf("subject %s (%s) not found", subjectRef, referenceType)
 	}
-	if subject.ID == "" {
-		t.Fatalf("subject response missing id")
+	subjectID := stringOutput(t, subject, "subjectId")
+	if subjectID == "" {
+		t.Fatal("subject response missing id")
 	}
 
-	exists, err := client.CheckConsent(ctx, subject.ID)
-	if err != nil {
-		t.Fatalf("check consent failed: %v", err)
-	}
-	if !exists {
-		t.Fatalf("consent not reported for subject %s", subject.ID)
+	check := invoke(t, server, "checkConsent", map[string]property.Value{"subjectId": property.New(subjectID)})
+	if !boolOutput(t, check, "exists") {
+		t.Fatalf("consent not reported for subject %s", subjectID)
 	}
 
-	profile, found, err := client.FetchConsentProfile(ctx, hashedSubjectID, configID)
-	if err != nil {
-		t.Fatalf("fetch consent profile failed: %v", err)
-	}
-	if !found {
+	profile := invoke(t, server, "getConsentProfile", map[string]property.Value{
+		"hashedSubjectId": property.New(hashedSubjectID), "configId": property.New(configID),
+	})
+	if !boolOutput(t, profile, "exists") {
 		t.Fatalf("consent profile not found for hashed subject %s", hashedSubjectID)
 	}
-	if len(profile) == 0 {
-		t.Fatalf("consent profile payload empty")
+	if mapOutput(t, profile, "profile").Len() == 0 {
+		t.Fatal("consent profile payload empty")
 	}
 }
 
 func TestConfigAndCollectionsReads(t *testing.T) {
 	testenv.RequireOptIn(t, testenv.EnvRunConsentE2E, "enable unified consent read tests")
+	server := providerServer(t)
 
-	client, err := api.NewClientFromEnv(false)
-	if err != nil {
-		t.Fatalf("unable to initialize API client: %v", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-
-	config, err := client.FetchConfig(ctx)
-	if err != nil {
-		t.Fatalf("fetch config failed: %v", err)
-	}
-	if len(config) == 0 {
-		t.Fatalf("config payload was empty")
+	config := mapOutput(t, invoke(t, server, "getConfig", nil), "config")
+	if config.Len() == 0 {
+		t.Fatal("config payload was empty")
 	}
 
-	jurisdiction := testenv.Optional(testenv.EnvTestCollectionsJurisdiction, "")
-	collectionType := testenv.Optional(testenv.EnvTestCollectionsType, "")
-	collections, err := client.FetchCollections(ctx, jurisdiction, collectionType)
-	if err != nil {
-		t.Fatalf("fetch collections failed: %v", err)
+	filters := map[string]property.Value{}
+	if jurisdiction := testenv.Optional(testenv.EnvTestCollectionsJurisdiction, ""); jurisdiction != "" {
+		filters["jurisdiction"] = property.New(jurisdiction)
 	}
-	if len(collections.Jurisdictions) == 0 {
-		t.Fatalf("collections response missing jurisdictions")
+	if collectionType := testenv.Optional(testenv.EnvTestCollectionsType, ""); collectionType != "" {
+		filters["type"] = property.New(collectionType)
 	}
-	if len(collections.Collection) == 0 {
-		t.Fatalf("collections response missing collection detail")
+	collections := invoke(t, server, "getCollections", filters)
+	if jurisdictions := collections.Get("jurisdictions"); !jurisdictions.IsArray() || jurisdictions.AsArray().Len() == 0 {
+		t.Fatal("collections response missing jurisdictions")
+	}
+	if mapOutput(t, collections, "collection").Len() == 0 {
+		t.Fatal("collections response missing collection detail")
 	}
 
 	collectionID := testenv.Require(t, testenv.EnvTestCollectionID, "collection identifier")
-	collection, found, err := client.FetchCollection(ctx, collectionID)
-	if err != nil {
-		t.Fatalf("fetch collection failed: %v", err)
-	}
-	if !found {
+	collection := invoke(t, server, "getCollection", map[string]property.Value{"collectionId": property.New(collectionID)})
+	if !boolOutput(t, collection, "exists") {
 		t.Fatalf("collection %s not found", collectionID)
 	}
-	if len(collection) == 0 {
+	if mapOutput(t, collection, "collection").Len() == 0 {
 		t.Fatalf("collection %s payload empty", collectionID)
 	}
 
-	t.Logf("config %s contained %d jurisdictions; collection %s returned %d keys", describeConfigID(config), len(collections.Jurisdictions), collectionID, len(collection))
-}
-
-func describeConfigID(config map[string]any) string {
-	if v, ok := config["id"].(string); ok && v != "" {
-		return v
-	}
-	if v, ok := config["name"].(string); ok && v != "" {
-		return v
-	}
-	return fmt.Sprintf("payload:%d-keys", len(config))
+	t.Logf("config has %d keys; collection %s returned %d keys",
+		config.Len(), collectionID, mapOutput(t, collection, "collection").Len())
 }

@@ -40,11 +40,17 @@ namespace Community.Pulumi.Osano
         [Input("referenceType")]
         public string? ReferenceType { get; set; }
 
+        [Input("subjectRef", required: true)]
+        private string? _subjectRef;
+
         /// <summary>
         /// The subject reference to resolve: an anonymous ID, verified ID, or session ID.
         /// </summary>
-        [Input("subjectRef", required: true)]
-        public string SubjectRef { get; set; } = null!;
+        public string? SubjectRef
+        {
+            get => _subjectRef;
+            set => _subjectRef = value;
+        }
 
         public GetSubjectArgs()
         {
@@ -60,11 +66,21 @@ namespace Community.Pulumi.Osano
         [Input("referenceType")]
         public Input<string>? ReferenceType { get; set; }
 
+        [Input("subjectRef", required: true)]
+        private Input<string>? _subjectRef;
+
         /// <summary>
         /// The subject reference to resolve: an anonymous ID, verified ID, or session ID.
         /// </summary>
-        [Input("subjectRef", required: true)]
-        public Input<string> SubjectRef { get; set; } = null!;
+        public Input<string>? SubjectRef
+        {
+            get => _subjectRef;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _subjectRef = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         public GetSubjectInvokeArgs()
         {
@@ -77,7 +93,7 @@ namespace Community.Pulumi.Osano
     public sealed class GetSubjectResult
     {
         /// <summary>
-        /// The subject's anonymous ID, if any.
+        /// The subject's anonymous ID, if any. Secret, because it identifies a person.
         /// </summary>
         public readonly string AnonymousId;
         /// <summary>
@@ -85,15 +101,15 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly bool Exists;
         /// <summary>
-        /// The subject's Osano ID.
+        /// The subject's Osano ID. Secret, because it identifies a person.
         /// </summary>
         public readonly string SubjectId;
         /// <summary>
-        /// The subject reference that was resolved.
+        /// The subject reference that was resolved. Secret, because it identifies a person.
         /// </summary>
         public readonly string SubjectRef;
         /// <summary>
-        /// The subject's verified ID, if the subject is verified.
+        /// The subject's verified ID, if the subject is verified. Secret, because it identifies a person.
         /// </summary>
         public readonly string VerifiedId;
 

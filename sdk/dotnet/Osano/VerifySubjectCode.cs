@@ -46,11 +46,17 @@ namespace Community.Pulumi.Osano
             set => _code = value;
         }
 
-        /// <summary>
-        /// Email address the code was sent to. Set exactly one of email or phone.
-        /// </summary>
         [Input("email")]
-        public string? Email { get; set; }
+        private string? _email;
+
+        /// <summary>
+        /// Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public string? Email
+        {
+            get => _email;
+            set => _email = value;
+        }
 
         /// <summary>
         /// Optional hashed subject identifier, sent only when set.
@@ -58,11 +64,17 @@ namespace Community.Pulumi.Osano
         [Input("hashedSubjectId")]
         public string? HashedSubjectId { get; set; }
 
-        /// <summary>
-        /// Phone number the code was sent to. Set exactly one of email or phone.
-        /// </summary>
         [Input("phone")]
-        public string? Phone { get; set; }
+        private string? _phone;
+
+        /// <summary>
+        /// Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public string? Phone
+        {
+            get => _phone;
+            set => _phone = value;
+        }
 
         [Input("session")]
         private string? _session;
@@ -100,11 +112,21 @@ namespace Community.Pulumi.Osano
             }
         }
 
-        /// <summary>
-        /// Email address the code was sent to. Set exactly one of email or phone.
-        /// </summary>
         [Input("email")]
-        public Input<string>? Email { get; set; }
+        private Input<string>? _email;
+
+        /// <summary>
+        /// Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public Input<string>? Email
+        {
+            get => _email;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _email = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         /// <summary>
         /// Optional hashed subject identifier, sent only when set.
@@ -112,11 +134,21 @@ namespace Community.Pulumi.Osano
         [Input("hashedSubjectId")]
         public Input<string>? HashedSubjectId { get; set; }
 
-        /// <summary>
-        /// Phone number the code was sent to. Set exactly one of email or phone.
-        /// </summary>
         [Input("phone")]
-        public Input<string>? Phone { get; set; }
+        private Input<string>? _phone;
+
+        /// <summary>
+        /// Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public Input<string>? Phone
+        {
+            get => _phone;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _phone = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         [Input("session")]
         private Input<string>? _session;
@@ -161,11 +193,11 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly ImmutableDictionary<string, object> Profile;
         /// <summary>
-        /// True when Osano accepted the code; a rejected code fails the invoke instead.
+        /// True when Osano accepted the code. A rejected code fails the invoke, as does a response that reports verified: false.
         /// </summary>
         public readonly bool Verified;
         /// <summary>
-        /// The subject's verified ID returned by Osano.
+        /// The subject's verified ID returned by Osano. Secret, because it identifies a person.
         /// </summary>
         public readonly string VerifiedId;
 

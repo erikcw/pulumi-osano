@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -6,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 )
 
@@ -37,7 +37,7 @@ type GetUnifiedConsent struct{}
 
 // GetUnifiedConsentArgs captures the lookup parameters for the invoke.
 type GetUnifiedConsentArgs struct {
-	SubjectRef          string  `pulumi:"subjectRef"`
+	SubjectRef          string  `pulumi:"subjectRef" provider:"secret"`
 	ReferenceType       string  `pulumi:"referenceType,optional"`
 	CountryCodeOverride *string `pulumi:"countryCodeOverride,optional"`
 	RegionCodeOverride  *string `pulumi:"regionCodeOverride,optional"`
@@ -51,24 +51,31 @@ func (args *GetUnifiedConsentArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.RegionCodeOverride, regionCodeOverrideDescription)
 }
 
-// GetUnifiedConsentResult is returned to Pulumi programs.
+// GetUnifiedConsentResult is returned to Pulumi programs. The subject reference and the consent
+// payload (which carries the subject ID and the ipAddress and userAgent attributes Osano records)
+// are personal data, so they are secrets.
 type GetUnifiedConsentResult struct {
-	SubjectRef     string           `pulumi:"subjectRef"`
+	SubjectRef     string           `pulumi:"subjectRef" provider:"secret"`
 	Exists         bool             `pulumi:"exists"`
-	UnifiedConsent map[string]any   `pulumi:"unifiedConsent"`
-	Conflicts      []map[string]any `pulumi:"conflicts"`
+	UnifiedConsent map[string]any   `pulumi:"unifiedConsent" provider:"secret"`
+	Conflicts      []map[string]any `pulumi:"conflicts" provider:"secret"`
 }
 
 // Annotate documents the getUnifiedConsent outputs.
 func (r *GetUnifiedConsentResult) Annotate(a infer.Annotator) {
-	a.Describe(&r.SubjectRef, "The subject reference that was looked up.")
+	a.Describe(&r.SubjectRef, "The subject reference that was looked up. Secret, because it identifies a person.")
 	a.Describe(&r.Exists, "Whether Osano has any consent for the subject.")
 	a.Describe(
 		&r.UnifiedConsent,
 		"The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, "+
-			"lastConflictDate, actions, attributes, compliance, and tags.",
+			"lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes "+
+			"hold the subject's IP address and user agent.",
 	)
-	a.Describe(&r.Conflicts, "Conflicting consents Osano resolved, with the resolution and the actions in conflict.")
+	a.Describe(
+		&r.Conflicts,
+		"Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, "+
+			"because it is the consent history of a person.",
+	)
 }
 
 // Annotate registers the getUnifiedConsent invoke schema metadata.
@@ -86,6 +93,7 @@ func (g *GetUnifiedConsent) Invoke(
 	if subjectRef == "" {
 		return infer.FunctionResponse[GetUnifiedConsentResult]{}, errors.New("subjectRef is required")
 	}
+	warnDeprecatedReferenceType(ctx, req.Input.ReferenceType)
 
 	geo, err := geoOverrideFrom(req.Input.CountryCodeOverride, req.Input.RegionCodeOverride)
 	if err != nil {
@@ -162,7 +170,7 @@ type GetSubject struct{}
 
 // GetSubjectArgs captures the subject lookup parameters.
 type GetSubjectArgs struct {
-	SubjectRef    string `pulumi:"subjectRef"`
+	SubjectRef    string `pulumi:"subjectRef" provider:"secret"`
 	ReferenceType string `pulumi:"referenceType,optional"`
 }
 
@@ -172,21 +180,25 @@ func (args *GetSubjectArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.ReferenceType, referenceTypeDescription)
 }
 
-// GetSubjectResult provides the ID pairings for a subject reference.
+// GetSubjectResult provides the ID pairings for a subject reference. Every identifier is a secret,
+// because each one identifies a person.
 type GetSubjectResult struct {
-	SubjectRef  string `pulumi:"subjectRef"`
-	SubjectID   string `pulumi:"subjectId"`
-	VerifiedID  string `pulumi:"verifiedId"`
-	AnonymousID string `pulumi:"anonymousId"`
+	SubjectRef  string `pulumi:"subjectRef" provider:"secret"`
+	SubjectID   string `pulumi:"subjectId" provider:"secret"`
+	VerifiedID  string `pulumi:"verifiedId" provider:"secret"`
+	AnonymousID string `pulumi:"anonymousId" provider:"secret"`
 	Exists      bool   `pulumi:"exists"`
 }
 
 // Annotate documents the getSubject outputs.
 func (r *GetSubjectResult) Annotate(a infer.Annotator) {
-	a.Describe(&r.SubjectRef, "The subject reference that was resolved.")
-	a.Describe(&r.SubjectID, "The subject's Osano ID.")
-	a.Describe(&r.VerifiedID, "The subject's verified ID, if the subject is verified.")
-	a.Describe(&r.AnonymousID, "The subject's anonymous ID, if any.")
+	a.Describe(&r.SubjectRef, "The subject reference that was resolved. Secret, because it identifies a person.")
+	a.Describe(&r.SubjectID, "The subject's Osano ID. Secret, because it identifies a person.")
+	a.Describe(
+		&r.VerifiedID,
+		"The subject's verified ID, if the subject is verified. Secret, because it identifies a person.",
+	)
+	a.Describe(&r.AnonymousID, "The subject's anonymous ID, if any. Secret, because it identifies a person.")
 	a.Describe(&r.Exists, "Whether Osano knows the subject. The ID outputs are empty when false.")
 }
 
@@ -201,12 +213,14 @@ func (g *GetSubject) Invoke(
 	ctx context.Context,
 	req infer.FunctionRequest[GetSubjectArgs],
 ) (infer.FunctionResponse[GetSubjectResult], error) {
-	if strings.TrimSpace(req.Input.SubjectRef) == "" {
+	subjectRef := strings.TrimSpace(req.Input.SubjectRef)
+	if subjectRef == "" {
 		return infer.FunctionResponse[GetSubjectResult]{}, errors.New("subjectRef is required")
 	}
+	warnDeprecatedReferenceType(ctx, req.Input.ReferenceType)
 
 	client := newAPIClient(ctx)
-	payload, found, err := client.FetchSubject(ctx, req.Input.SubjectRef, req.Input.ReferenceType)
+	payload, found, err := client.FetchSubject(ctx, subjectRef, req.Input.ReferenceType)
 	if err != nil {
 		return infer.FunctionResponse[GetSubjectResult]{}, err
 	}
@@ -214,7 +228,7 @@ func (g *GetSubject) Invoke(
 	if !found {
 		return infer.FunctionResponse[GetSubjectResult]{
 			Output: GetSubjectResult{
-				SubjectRef: req.Input.SubjectRef,
+				SubjectRef: subjectRef,
 				Exists:     false,
 			},
 		}, nil
@@ -222,13 +236,23 @@ func (g *GetSubject) Invoke(
 
 	return infer.FunctionResponse[GetSubjectResult]{
 		Output: GetSubjectResult{
-			SubjectRef:  req.Input.SubjectRef,
+			SubjectRef:  subjectRef,
 			SubjectID:   payload.ID,
 			VerifiedID:  payload.VerifiedID,
 			AnonymousID: payload.AnonymousID,
 			Exists:      true,
 		},
 	}, nil
+}
+
+// warnDeprecatedReferenceType tells the user that the anonymous alias is deprecated.
+func warnDeprecatedReferenceType(ctx context.Context, referenceType string) {
+	if strings.TrimSpace(referenceType) == referenceTypeAnonymous {
+		p.GetLogger(ctx).Warningf(
+			"referenceType %q is deprecated and is sent as %q: anonymous IDs are subject references. Use %q or omit it.",
+			referenceTypeAnonymous, referenceTypeSubject, referenceTypeSubject,
+		)
+	}
 }
 
 // GetConfig returns the UC configuration associated with the Unified Consent API key.
@@ -410,27 +434,27 @@ type CheckConsent struct{}
 
 // CheckConsentArgs identifies the subject to inspect.
 type CheckConsentArgs struct {
-	SubjectID           string  `pulumi:"subjectId"`
+	SubjectID           string  `pulumi:"subjectId" provider:"secret"`
 	CountryCodeOverride *string `pulumi:"countryCodeOverride,optional"`
 	RegionCodeOverride  *string `pulumi:"regionCodeOverride,optional"`
 }
 
 // Annotate documents the checkConsent input fields.
 func (args *CheckConsentArgs) Annotate(a infer.Annotator) {
-	a.Describe(&args.SubjectID, "The subject ID to check.")
+	a.Describe(&args.SubjectID, "The subject ID to check. Secret, because it identifies a person.")
 	a.Describe(&args.CountryCodeOverride, countryCodeOverrideDescription)
 	a.Describe(&args.RegionCodeOverride, regionCodeOverrideDescription)
 }
 
 // CheckConsentResult reports whether consent exists for a subject.
 type CheckConsentResult struct {
-	SubjectID string `pulumi:"subjectId"`
+	SubjectID string `pulumi:"subjectId" provider:"secret"`
 	Exists    bool   `pulumi:"exists"`
 }
 
 // Annotate documents the checkConsent outputs.
 func (r *CheckConsentResult) Annotate(a infer.Annotator) {
-	a.Describe(&r.SubjectID, "The subject ID that was checked.")
+	a.Describe(&r.SubjectID, "The subject ID that was checked. Secret, because it identifies a person.")
 	a.Describe(&r.Exists, "Whether the subject has given consent in the configuration.")
 }
 
@@ -491,7 +515,7 @@ func (args *GetConsentProfileArgs) Annotate(a infer.Annotator) {
 type GetConsentProfileResult struct {
 	HashedSubjectID string         `pulumi:"hashedSubjectId"`
 	ConfigID        string         `pulumi:"configId"`
-	Profile         map[string]any `pulumi:"profile"`
+	Profile         map[string]any `pulumi:"profile" provider:"secret"`
 	Exists          bool           `pulumi:"exists"`
 }
 
@@ -499,7 +523,11 @@ type GetConsentProfileResult struct {
 func (r *GetConsentProfileResult) Annotate(a infer.Annotator) {
 	a.Describe(&r.HashedSubjectID, "The hashed subject identifier that was looked up.")
 	a.Describe(&r.ConfigID, "The configuration ID that was looked up.")
-	a.Describe(&r.Profile, "The consent profile Osano returned, with unifiedConsent and conflicts keys.")
+	a.Describe(
+		&r.Profile,
+		"The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it "+
+			"holds the subject's consent history, IP address, and user agent.",
+	)
 	a.Describe(&r.Exists, "Whether Osano returned a consent profile.")
 }
 
@@ -550,17 +578,17 @@ type GetSubjectProfile struct{}
 
 // GetSubjectProfileArgs identifies the subject.
 type GetSubjectProfileArgs struct {
-	SubjectID string `pulumi:"subjectId"`
+	SubjectID string `pulumi:"subjectId" provider:"secret"`
 }
 
 // Annotate documents the getSubjectProfile inputs.
 func (args *GetSubjectProfileArgs) Annotate(a infer.Annotator) {
-	a.Describe(&args.SubjectID, "The subject ID whose profile is returned.")
+	a.Describe(&args.SubjectID, "The subject ID whose profile is returned. Secret, because it identifies a person.")
 }
 
 // GetSubjectProfileResult is the subject profile.
 type GetSubjectProfileResult struct {
-	SubjectID string         `pulumi:"subjectId"`
+	SubjectID string         `pulumi:"subjectId" provider:"secret"`
 	Exists    bool           `pulumi:"exists"`
 	Email     string         `pulumi:"email" provider:"secret"`
 	Profile   map[string]any `pulumi:"profile" provider:"secret"`
@@ -568,7 +596,7 @@ type GetSubjectProfileResult struct {
 
 // Annotate documents the getSubjectProfile outputs.
 func (r *GetSubjectProfileResult) Annotate(a infer.Annotator) {
-	a.Describe(&r.SubjectID, "The subject ID that was looked up.")
+	a.Describe(&r.SubjectID, "The subject ID that was looked up. Secret, because it identifies a person.")
 	a.Describe(&r.Exists, "Whether Osano returned a profile for the subject.")
 	a.Describe(&r.Email, "The subject's email address. Secret, because it is personal data.")
 	a.Describe(&r.Profile, "The complete profile Osano returned. Secret, because it is personal data.")
@@ -620,14 +648,14 @@ func (args *GetSessionArgs) Annotate(a infer.Annotator) {
 // GetSessionResult is the session's subject and profile.
 type GetSessionResult struct {
 	Exists     bool           `pulumi:"exists"`
-	VerifiedID string         `pulumi:"verifiedId"`
+	VerifiedID string         `pulumi:"verifiedId" provider:"secret"`
 	Profile    map[string]any `pulumi:"profile" provider:"secret"`
 }
 
 // Annotate documents the getSession outputs.
 func (r *GetSessionResult) Annotate(a infer.Annotator) {
 	a.Describe(&r.Exists, "Whether Osano recognized the session.")
-	a.Describe(&r.VerifiedID, "The verified ID of the session's subject.")
+	a.Describe(&r.VerifiedID, "The verified ID of the session's subject. Secret, because it identifies a person.")
 	a.Describe(
 		&r.Profile,
 		"The session's profile (email, firstName, lastName). Secret, because it is personal data.",
@@ -671,11 +699,12 @@ func (g *GetSession) Invoke(
 // SendSubjectCode starts the verification flow for a subject profile.
 type SendSubjectCode struct{}
 
-// SendSubjectCodeArgs identifies the subject and delivery channel for verification.
+// SendSubjectCodeArgs identifies the subject and delivery channel for verification. The contact
+// details are personal data, so they are secrets, as the destination output already is.
 type SendSubjectCodeArgs struct {
 	HashedSubjectID string `pulumi:"hashedSubjectId,optional"`
-	Email           string `pulumi:"email,optional"`
-	Phone           string `pulumi:"phone,optional"`
+	Email           string `pulumi:"email,optional" provider:"secret"`
+	Phone           string `pulumi:"phone,optional" provider:"secret"`
 }
 
 // Annotate documents the sendSubjectCode input fields.
@@ -685,8 +714,15 @@ func (args *SendSubjectCodeArgs) Annotate(a infer.Annotator) {
 		"Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject "+
 			"by email or phone.",
 	)
-	a.Describe(&args.Email, "Email address to send the code to. Set exactly one of email or phone.")
-	a.Describe(&args.Phone, "Phone number to send the code to by SMS. Set exactly one of email or phone.")
+	a.Describe(
+		&args.Email,
+		"Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.",
+	)
+	a.Describe(
+		&args.Phone,
+		"Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is "+
+			"personal data.",
+	)
 }
 
 // SendSubjectCodeResult reports where the verification code was sent.
@@ -761,12 +797,13 @@ func (s *SendSubjectCode) Invoke(
 // VerifySubjectCode finalizes a subject verification challenge.
 type VerifySubjectCode struct{}
 
-// VerifySubjectCodeArgs captures the contact and code used for verification.
+// VerifySubjectCodeArgs captures the contact and code used for verification. The contact details
+// are personal data, so they are secrets, as the destination output already is.
 type VerifySubjectCodeArgs struct {
 	HashedSubjectID string `pulumi:"hashedSubjectId,optional"`
 	Code            string `pulumi:"code" provider:"secret"`
-	Email           string `pulumi:"email,optional"`
-	Phone           string `pulumi:"phone,optional"`
+	Email           string `pulumi:"email,optional" provider:"secret"`
+	Phone           string `pulumi:"phone,optional" provider:"secret"`
 	Session         string `pulumi:"session,optional" provider:"secret"`
 }
 
@@ -774,8 +811,14 @@ type VerifySubjectCodeArgs struct {
 func (args *VerifySubjectCodeArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.HashedSubjectID, "Optional hashed subject identifier, sent only when set.")
 	a.Describe(&args.Code, "The one-time verification code the subject received (6 characters by email, 8 by SMS).")
-	a.Describe(&args.Email, "Email address the code was sent to. Set exactly one of email or phone.")
-	a.Describe(&args.Phone, "Phone number the code was sent to. Set exactly one of email or phone.")
+	a.Describe(
+		&args.Email,
+		"Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.",
+	)
+	a.Describe(
+		&args.Phone,
+		"Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.",
+	)
 	a.Describe(&args.Session, "The SMS challenge session. Required with phone; not used with email.")
 }
 
@@ -785,7 +828,7 @@ type VerifySubjectCodeResult struct {
 	Channel         string         `pulumi:"channel"`
 	Destination     string         `pulumi:"destination" provider:"secret"`
 	Verified        bool           `pulumi:"verified"`
-	VerifiedID      string         `pulumi:"verifiedId"`
+	VerifiedID      string         `pulumi:"verifiedId" provider:"secret"`
 	Profile         map[string]any `pulumi:"profile" provider:"secret"`
 }
 
@@ -794,8 +837,12 @@ func (r *VerifySubjectCodeResult) Annotate(a infer.Annotator) {
 	a.Describe(&r.HashedSubjectID, "The hashed subject identifier sent with the request, if any.")
 	a.Describe(&r.Channel, "The verification channel: email or sms.")
 	a.Describe(&r.Destination, "The email address or phone number that was verified. Secret, because it is personal data.")
-	a.Describe(&r.Verified, "True when Osano accepted the code; a rejected code fails the invoke instead.")
-	a.Describe(&r.VerifiedID, "The subject's verified ID returned by Osano.")
+	a.Describe(
+		&r.Verified,
+		"True when Osano accepted the code. A rejected code fails the invoke, as does a response that "+
+			"reports verified: false.",
+	)
+	a.Describe(&r.VerifiedID, "The subject's verified ID returned by Osano. Secret, because it identifies a person.")
 	a.Describe(&r.Profile, "The complete response Osano returned. Secret, because it can hold personal data.")
 }
 
@@ -843,6 +890,13 @@ func (v *VerifySubjectCode) Invoke(
 		return infer.FunctionResponse[VerifySubjectCodeResult]{}, err
 	}
 
+	// Osano documents only {"verifiedId": ...} on success; a body that explicitly reports
+	// verified: false must not count as verified even when the status is 2xx.
+	if verified, reported := profile["verified"].(bool); reported && !verified {
+		return infer.FunctionResponse[VerifySubjectCodeResult]{}, errors.New(
+			"Osano did not verify the code: the response reports verified: false",
+		)
+	}
 	result := VerifySubjectCodeResult{
 		HashedSubjectID: hashed,
 		Channel:         channel,

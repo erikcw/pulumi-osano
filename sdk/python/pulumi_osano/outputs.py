@@ -29,12 +29,17 @@ __all__ = [
 
 @pulumi.output_type
 class ConsentAction(dict):
+    """
+    One consent decision: the subject's action for a privacy protocol within a configuration.
+    """
     def __init__(__self__, *,
                  action: _builtins.str,
                  target: _builtins.str,
                  vendor: _builtins.str,
                  jurisdiction: Optional[_builtins.str] = None):
         """
+        One consent decision: the subject's action for a privacy protocol within a configuration.
+
         :param _builtins.str action: The subject's choice: ACCEPT, REJECT, or UNSELECTED.
         :param _builtins.str target: The privacy protocol ID (the Target ID on the privacy protocol's edit page).
         :param _builtins.str vendor: The Unified Consent configuration ID the consent is recorded for.
@@ -81,6 +86,9 @@ class ConsentAction(dict):
 
 @pulumi.output_type
 class ConsentCompliance(dict):
+    """
+    Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+    """
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -102,6 +110,8 @@ class ConsentCompliance(dict):
                  gpc: Optional[_builtins.int] = None,
                  privacy_policy: Optional['outputs.ConsentPrivacyPolicy'] = None):
         """
+        Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+
         :param _builtins.int gpc: 1 if the Global Privacy Control signal is enabled, 0 otherwise.
         :param 'ConsentPrivacyPolicy' privacy_policy: The privacy policy in effect when the consent was given.
         """
@@ -129,10 +139,15 @@ class ConsentCompliance(dict):
 
 @pulumi.output_type
 class ConsentPrivacyPolicy(dict):
+    """
+    The published privacy policy a consent was given under.
+    """
     def __init__(__self__, *,
                  url: _builtins.str,
                  version: Optional[_builtins.str] = None):
         """
+        The published privacy policy a consent was given under.
+
         :param _builtins.str url: The privacy policy URL.
         :param _builtins.str version: The privacy policy version active when the consent was submitted.
         """
@@ -159,6 +174,9 @@ class ConsentPrivacyPolicy(dict):
 
 @pulumi.output_type
 class ConsentSubject(dict):
+    """
+    The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+    """
     @staticmethod
     def __key_warning(key: str):
         suggest = None
@@ -182,6 +200,8 @@ class ConsentSubject(dict):
                  anonymous_id: Optional[_builtins.str] = None,
                  verified_id: Optional[_builtins.str] = None):
         """
+        The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+
         :param _builtins.str anonymous_id: The subject's anonymous ID. Must not contain #, %, or spaces.
         :param _builtins.str verified_id: The subject's verified ID. Must not contain #, %, or spaces.
         """
@@ -209,6 +229,9 @@ class ConsentSubject(dict):
 
 @pulumi.output_type
 class CookieConsentAuditEvent(dict):
+    """
+    One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.
+    """
     def __init__(__self__, *,
                  event_type: _builtins.str,
                  id: _builtins.str,
@@ -218,6 +241,8 @@ class CookieConsentAuditEvent(dict):
                  actor: Optional[_builtins.str] = None,
                  metadata: Optional[Mapping[str, Any]] = None):
         """
+        One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.
+
         :param _builtins.str event_type: The machine-readable event type, such as cmp.configPublished.
         :param _builtins.str id: The audit event ID.
         :param _builtins.str module: The Osano module, currently always CMP.
@@ -295,12 +320,17 @@ class CookieConsentAuditEvent(dict):
 
 @pulumi.output_type
 class CookieConsentAuditResource(dict):
+    """
+    A resource an audit log event acted on.
+    """
     def __init__(__self__, *,
                  is_primary: _builtins.bool,
                  resource_id: _builtins.str,
                  resource_type: _builtins.str,
                  resource_name: Optional[_builtins.str] = None):
         """
+        A resource an audit log event acted on.
+
         :param _builtins.bool is_primary: Whether this is the event's primary resource.
         :param _builtins.str resource_id: The resource ID; for CMP events, the config ID.
         :param _builtins.str resource_type: The resource type, such as CMP.
@@ -347,6 +377,9 @@ class CookieConsentAuditResource(dict):
 
 @pulumi.output_type
 class CookieConsentConfigDetails(dict):
+    """
+    A Cookie Consent configuration as Osano reports it, with its install script.
+    """
     def __init__(__self__, *,
                  config_id: _builtins.str,
                  configuration: Mapping[str, Any],
@@ -364,6 +397,8 @@ class CookieConsentConfigDetails(dict):
                  tattle_record_stopped: _builtins.bool,
                  updated: _builtins.int):
         """
+        A Cookie Consent configuration as Osano reports it, with its install script.
+
         :param _builtins.str config_id: The Osano config ID (UUID).
         :param Mapping[str, Any] configuration: The CMP configuration object as Osano reports it, including server defaults.
         :param _builtins.int created: Unix timestamp when Osano created the configuration.
@@ -519,6 +554,9 @@ class CookieConsentConfigDetails(dict):
 
 @pulumi.output_type
 class CookieConsentDiscovery(dict):
+    """
+    A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
+    """
     def __init__(__self__, *,
                  created: _builtins.str,
                  first_page_seen: _builtins.str,
@@ -528,6 +566,8 @@ class CookieConsentDiscovery(dict):
                  confidence: Optional[_builtins.str] = None,
                  scan_origin: Optional[_builtins.str] = None):
         """
+        A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
+
         :param _builtins.str created: When the discovery was first seen (ISO 8601).
         :param _builtins.str first_page_seen: The page URL where the item was first seen.
         :param _builtins.str store_key: The discovered cookie name, script or iframe URL, or localStorage key.
@@ -605,6 +645,9 @@ class CookieConsentDiscovery(dict):
 
 @pulumi.output_type
 class CookieConsentRuleDetails(dict):
+    """
+    A classification rule of a Cookie Consent configuration as Osano reports it.
+    """
     def __init__(__self__, *,
                  classification: _builtins.str,
                  config_id: _builtins.str,
@@ -621,6 +664,8 @@ class CookieConsentRuleDetails(dict):
                  vendor_id: Optional[_builtins.str] = None,
                  vendor_name: Optional[_builtins.str] = None):
         """
+        A classification rule of a Cookie Consent configuration as Osano reports it.
+
         :param _builtins.str classification: The rule classification.
         :param _builtins.str config_id: The configuration the rule belongs to.
         :param _builtins.str created: When the rule was created (ISO 8601).

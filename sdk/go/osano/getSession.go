@@ -32,7 +32,7 @@ type GetSessionResult struct {
 	Exists bool `pulumi:"exists"`
 	// The session's profile (email, firstName, lastName). Secret, because it is personal data.
 	Profile map[string]interface{} `pulumi:"profile"`
-	// The verified ID of the session's subject.
+	// The verified ID of the session's subject. Secret, because it identifies a person.
 	VerifiedId string `pulumi:"verifiedId"`
 }
 
@@ -74,7 +74,7 @@ func (o GetSessionResultOutput) Profile() pulumi.MapOutput {
 	return o.ApplyT(func(v GetSessionResult) map[string]interface{} { return v.Profile }).(pulumi.MapOutput)
 }
 
-// The verified ID of the session's subject.
+// The verified ID of the session's subject. Secret, because it identifies a person.
 func (o GetSessionResultOutput) VerifiedId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSessionResult) string { return v.VerifiedId }).(pulumi.StringOutput)
 }

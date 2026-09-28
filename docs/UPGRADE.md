@@ -2,6 +2,81 @@
 
 This guide captures breaking changes and migration tips between provider versions.
 
+## Upgrading from 0.2.x to 0.3.0
+
+`0.3.0` keeps every resource and function token and never replaces an Osano resource by itself.
+Upgrade the SDK, run `pulumi preview`, and check the items below that apply to your program. The
+first preview shows the provider change described in
+[What the first preview shows for the provider](#what-the-first-preview-shows-for-the-provider)
+(`default_0_3_0` replaces `default_0_2_1`) and nothing else.
+
+### Provider configuration
+
+- **Stack configuration now wins over environment variables.** If a pipeline exports
+  `OSANO_API_KEY`, `OSANO_UC_API_KEY`, `OSANO_API_BASE_URL`, or `OSANO_API_TIMEOUT_SECONDS` while
+  the stack also sets the matching `osano:` key, 0.2.x used the environment variable and 0.3.0 uses
+  the stack configuration, with a warning that names both. To keep using the environment variable,
+  remove the stack key (`pulumi config rm osano:osanoApiKey`).
+- **`http` base URLs are rejected** unless the host is a loopback address. A stack that pointed
+  `apiBaseUrl` or `customerBaseUrl` at a plain-`http` proxy fails to configure with
+  `API keys are only sent over https`; use an `https` endpoint or a loopback tunnel.
+- **`requestTimeoutSeconds` above 3600 fails**, and an `OSANO_API_TIMEOUT_SECONDS` value outside
+  1 to 3600 is ignored with a warning. The timeout applies to each attempt, so a retried request
+  can take longer in total than before.
+- `OSANO_CUSTOMER_BASE_URL` is new; nothing changes while it is unset.
+
+### Retries
+
+Unified Consent lookups and `Consent` refreshes are now retried after transient failures, and
+`CookieConsentConfig`, `CookieConsentRule`, and `Consent` creates are no longer retried after
+`503`, only after `429`. A failed `CookieConsentConfig` create looks for the configuration Osano may
+have created anyway and adopts it when exactly one matches; otherwise see
+[troubleshooting](troubleshooting.md#cookie-consent-create-failed-with-a-server-error).
+
+### Secrets
+
+- `Consent.subject` and the subject identifiers and personal data returned by the Unified Consent
+  functions are secrets; the [changelog](../CHANGELOG.md#unreleased) lists them. Stack outputs
+  built from them show as `[secret]`; use `pulumi stack output --show-secrets` to read them.
+- Existing `Consent` resources show no diff. The resource compares inputs by value, so the SDK now
+  sending `subject` as a secret is not a change, and nothing is submitted again. The value is
+  stored encrypted the next time the resource is written to state, for example by `pulumi refresh`.
+- A value from one of these outputs makes any resource input it flows into secret as well. When the
+  target is not sensitive, unwrap it with your SDK's `unsecret` helper.
+
+### `Consent` refresh and import
+
+- `pulumi refresh` no longer removes a `Consent` whose subject Osano reports without consent; it
+  warns and keeps the resource. If you relied on refresh to resubmit such consents, submit them
+  deliberately: change an input, which replaces the resource, or run `pulumi up --replace <urn>`.
+- `pulumi import osano:index:Consent` now fails with an explicit error. It never produced a usable
+  resource.
+- `lastSynced` no longer changes on refresh; it is the submission time.
+
+### Cookie Consent
+
+- `CookieConsentRule`: an update no longer clears an optional field the program has never set
+  (`title`, `vendorName`, `ruleType`, and for cookies `description` and `expiry`). To clear a value
+  set in the Osano dashboard, set the field in the program, apply, then remove it and apply again.
+- `CookieConsentConfig`: a `configuration` key removed from the program is cleared in Osano on the
+  next update, where 0.2.x left it set. `pulumi preview` shows the removal before `pulumi up` sends
+  it.
+- A publication that failed with `Osano did not start a new publication` while Osano still showed
+  the previous publication's error now waits for its `customTimeouts` (20 minutes when none is
+  set). Set `customTimeouts` explicitly, as the examples do.
+- Previews of new resources show their inputs; a `CookieConsentPublication` preview shows the
+  configuration ID as its ID, and a `Consent` preview no longer shows a placeholder `consentId`.
+
+### Runtime and toolchain requirements
+
+| Language | Requires |
+| --- | --- |
+| Node.js | unchanged: Node.js 22 or later |
+| Python | unchanged: Python 3.10 or later; `pulumi>=3.231.0` |
+| Go | unchanged: Go 1.26.6 or later. The SDK module no longer pins a `toolchain`, so `go get` no longer downloads Go 1.27.1 |
+| .NET | .NET 8 or later, as documented before. The package now targets `net8.0` (was `net6.0`), so a project that still targets `net6.0` or `net7.0` must move to `net8.0` or later |
+| Java | unchanged: Java 11 or later |
+
 ## Upgrading from 0.2.0 to 0.2.1
 
 `0.2.1` changes no resource, function, input, output, or provider setting, and the provider

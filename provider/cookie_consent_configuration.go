@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -104,33 +103,41 @@ func validateCookieConsentConfiguration(
 		fail("storagePolicyHref", "must be a non-empty string (the privacy policy URL)")
 	}
 
+	// declared returns a key's value when the program sets it to something other than null. A
+	// declared null asks Osano to remove the value and restore its default, which every optional
+	// key accepts, so nulls are not type-checked.
+	declared := func(key string) (any, bool) {
+		value, ok := configuration[key]
+		return value, ok && value != nil
+	}
+
 	for _, key := range cookieConsentBooleanKeys {
-		if value, ok := configuration[key]; ok {
+		if value, ok := declared(key); ok {
 			if _, isBool := value.(bool); !isBool {
 				fail(key, "must be a boolean")
 			}
 		}
 	}
 
-	if value, ok := configuration["tattleSampling"]; ok {
+	if value, ok := declared("tattleSampling"); ok {
 		if n, isNumber := value.(float64); !isNumber || n < 0 || n > 1 {
 			fail("tattleSampling", "must be a number from 0 to 1")
 		}
 	}
-	if value, ok := configuration["timeoutSeconds"]; ok {
+	if value, ok := declared("timeoutSeconds"); ok {
 		if n, isNumber := value.(float64); !isNumber || n < 0 || n != math.Trunc(n) {
 			fail("timeoutSeconds", "must be a whole number of seconds")
 		}
 	}
 	for _, key := range []string{"iframeBlocking", "localStorageBlocking"} {
-		if value, ok := configuration[key]; ok {
+		if value, ok := declared(key); ok {
 			if s, isString := value.(string); !isString || !slices.Contains(cookieConsentBlockingModes, s) {
 				fail(key, `must be one of "", debug, permissive, or production`)
 			}
 		}
 	}
 
-	categories, hasCategories := configuration["doNotSellCategories"]
+	categories, hasCategories := declared("doNotSellCategories")
 	if hasCategories {
 		for _, message := range validateStringList(categories, cookieConsentDoNotSell) {
 			fail("doNotSellCategories", "%s", message)
@@ -143,7 +150,7 @@ func validateCookieConsentConfiguration(
 	}
 
 	policyLinkText, _ := configuration["policyLinkText"].(string)
-	if value, ok := configuration["policyLinkText"]; ok {
+	if value, ok := declared("policyLinkText"); ok {
 		if _, isString := value.(string); !isString {
 			fail("policyLinkText", "must be a string")
 		} else if !slices.Contains(cookieConsentPolicyLinkTexts, policyLinkText) {
@@ -154,13 +161,13 @@ func validateCookieConsentConfiguration(
 			))
 		}
 	}
-	if value, ok := configuration["additionalLinks"]; ok {
+	if value, ok := declared("additionalLinks"); ok {
 		for _, message := range validateAdditionalLinks(value, policyLinkText) {
 			fail("additionalLinks", "%s", message)
 		}
 	}
 
-	if value, ok := configuration["variantMapping"]; ok {
+	if value, ok := declared("variantMapping"); ok {
 		mapping, usable, messages := validateVariantMapping(value)
 		for _, message := range messages {
 			fail("variantMapping", "%s", message)
@@ -173,14 +180,14 @@ func validateCookieConsentConfiguration(
 		}
 	}
 
-	if value, ok := configuration["palette"]; ok {
+	if value, ok := declared("palette"); ok {
 		paletteFailures, paletteWarnings := validatePalette(value)
 		for _, message := range paletteFailures {
 			fail("palette", "%s", message)
 		}
 		warnings = append(warnings, paletteWarnings...)
 	}
-	if value, ok := configuration["translations"]; ok {
+	if value, ok := declared("translations"); ok {
 		if _, isMap := value.(map[string]any); !isMap {
 			fail("translations", "must be an object")
 		}
@@ -352,6 +359,35 @@ var cookieConsentAtomicConfigurationKeys = []string{"variantMapping"}
 // key that Osano omits keeps its declared value.
 func projectConfiguration(server, declared map[string]any) map[string]any {
 	return projectObject(server, declared, true)
+}
+
+// withRemovedKeysNulled returns the declared configuration plus an explicit null for every key the
+// previous inputs declared and the new ones no longer do, recursing into nested objects the same
+// way projectObject does. Osano treats null as "remove this value", so the update clears what the
+// program stopped managing; the state still records the declared object without the nulls.
+func withRemovedKeysNulled(declared, previous map[string]any) map[string]any {
+	return nullRemovedKeys(declared, previous, true)
+}
+
+func nullRemovedKeys(declared, previous map[string]any, topLevel bool) map[string]any {
+	merged := make(map[string]any, len(declared)+len(previous))
+	for key, value := range declared {
+		merged[key] = value
+	}
+	for key, previousValue := range previous {
+		declaredValue, stillDeclared := declared[key]
+		if !stillDeclared {
+			merged[key] = nil
+			continue
+		}
+		declaredObject, declaredIsObject := declaredValue.(map[string]any)
+		previousObject, previousIsObject := previousValue.(map[string]any)
+		atomic := topLevel && slices.Contains(cookieConsentAtomicConfigurationKeys, key)
+		if declaredIsObject && previousIsObject && !atomic {
+			merged[key] = nullRemovedKeys(declaredObject, previousObject, false)
+		}
+	}
+	return merged
 }
 
 func projectObject(server, declared map[string]any, topLevel bool) map[string]any {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -324,19 +325,20 @@ func TestUnifiedConsentInvokes(t *testing.T) {
 	}
 }
 
-func TestConsentResourceLifecycle(t *testing.T) {
-	consentInputs := func() property.Map {
-		return property.NewMap(map[string]property.Value{
-			"subject": property.New(map[string]property.Value{"verifiedId": property.New("user-1")}),
-			"actions": property.New([]property.Value{property.New(map[string]property.Value{
-				"target": property.New("protocol-1"),
-				"vendor": property.New("config-1"),
-				"action": property.New("ACCEPT"),
-			})}),
-			"attributes": property.New(map[string]property.Value{"count": property.New("1000000")}),
-		})
-	}
+// consentInputs is a valid Consent input map as the engine sends it.
+func consentInputs() property.Map {
+	return property.NewMap(map[string]property.Value{
+		"subject": property.New(map[string]property.Value{"verifiedId": property.New("user-1")}),
+		"actions": property.New([]property.Value{property.New(map[string]property.Value{
+			"target": property.New("protocol-1"),
+			"vendor": property.New("config-1"),
+			"action": property.New("ACCEPT"),
+		})}),
+		"attributes": property.New(map[string]property.Value{"count": property.New("1000000")}),
+	})
+}
 
+func TestConsentResourceLifecycle(t *testing.T) {
 	t.Run("preview makes no HTTP calls", func(t *testing.T) {
 		mock := &ucMockAPI{t: t}
 		api := httptest.NewServer(mock)
@@ -408,8 +410,8 @@ func TestConsentResourceLifecycle(t *testing.T) {
 		assertString(t, action, "target", "protocol-1")
 		assertString(t, action, "action", "ACCEPT")
 		assertString(t, resp.Inputs.Get("attributes").AsMap(), "count", "1000000")
-		if got := resp.Properties.Get("lastSynced").AsString(); got == "2026-01-01T00:00:00Z" {
-			t.Fatal("expected refresh to update lastSynced")
+		if got := resp.Properties.Get("lastSynced").AsString(); got != "2026-01-01T00:00:00Z" {
+			t.Fatalf("refresh must not rewrite lastSynced (a perpetual diff), got %q", got)
 		}
 		requests := mock.recorded()
 		if len(requests) != 1 || requests[0].Path != "/v2/consents/unified/user-1" || requests[0].Query["ref"] != "subject" {
@@ -417,7 +419,9 @@ func TestConsentResourceLifecycle(t *testing.T) {
 		}
 	})
 
-	t.Run("refresh drops the resource when the subject has no consent", func(t *testing.T) {
+	// Dropping the resource would make the next `pulumi up` submit the consent again without the
+	// subject's involvement, for example after Osano honored an erasure request.
+	t.Run("refresh keeps the resource when the subject has no consent", func(t *testing.T) {
 		mock := &ucMockAPI{t: t, status: http.StatusBadRequest}
 		api := httptest.NewServer(mock)
 		defer api.Close()
@@ -430,8 +434,36 @@ func TestConsentResourceLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if resp.ID != "" {
-			t.Fatalf("expected empty ID for a missing consent, got %q", resp.ID)
+		if resp.ID != "consent-1" {
+			t.Fatalf("a consent must stay tracked when Osano reports none, got ID %q", resp.ID)
+		}
+	})
+
+	t.Run("import is rejected with a clear message", func(t *testing.T) {
+		mock := &ucMockAPI{t: t}
+		api := httptest.NewServer(mock)
+		defer api.Close()
+
+		server := newUCProviderServer(t, api.URL)
+		_, err := server.Read(p.ReadRequest{ID: "consent-1", Urn: cmpURN("Consent", "imported")})
+		if err == nil || !strings.Contains(err.Error(), "cannot be imported") {
+			t.Fatalf("expected an import error, got %v", err)
+		}
+		if got := mock.recorded(); len(got) != 0 {
+			t.Fatalf("an import must not call Osano, got %#v", got)
+		}
+	})
+
+	t.Run("preview leaves the consent ID unknown", func(t *testing.T) {
+		server := newUCProviderServer(t, "https://uc.invalid")
+		resp, err := server.Create(p.CreateRequest{
+			Urn: cmpURN("Consent", "preview"), Properties: consentInputs(), DryRun: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.Properties.Get("consentId").IsComputed() {
+			t.Fatalf("expected consentId to be unknown during preview, got %#v", resp.Properties.Get("consentId"))
 		}
 	})
 }

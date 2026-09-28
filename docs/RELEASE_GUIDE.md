@@ -9,12 +9,14 @@ Pushing a `vX.Y.Z` tag runs [`.github/workflows/release.yml`](../.github/workflo
 which:
 
 1. builds and tests the provider and regenerates the schema and every SDK (`prerequisites`,
-   `build_sdks`);
+   `build_sdks`), and runs lint, the e2e compilation, the script tests, and the engine-level
+   pipeline suite (`verify`); nothing is published unless every one of these passes;
 2. builds the provider binaries with GoReleaser, creates the GitHub release with the archives,
    checksums, and SBOMs, and attests their build provenance (`publish`);
 3. publishes the Node.js SDK to npm, the Python SDK to PyPI, and the .NET SDK to NuGet
-   (`publish_sdks`, all with trusted publishing), and the Java SDK to Maven Central
-   (`publish_java_sdk`, signed with the release signing key below);
+   (`publish_sdks`, all with trusted publishing; the pushed `.nupkg` gets a build provenance
+   attestation), and the Java SDK to Maven Central (`publish_java_sdk`, signed with the release
+   signing key below);
 4. pushes the `sdk/go/osano/vX.Y.Z` tag for the Go SDK (`publish_go_sdk`).
 
 [PUBLISHING.md](PUBLISHING.md) lists every package a release publishes, with install commands and
@@ -145,8 +147,8 @@ short commit hash is appended, for example `0.2.0-alpha.1790300000+abc1234`).
 
 A dry run:
 
-- builds and tests the provider and regenerates and builds every SDK exactly like a release,
-  including the worktree-clean checks;
+- builds and tests the provider, regenerates and builds every SDK, and runs the `verify` job
+  exactly like a release, including the worktree-clean checks;
 - runs GoReleaser with `--snapshot`, which builds every release archive, checksum, and SBOM without
   creating a GitHub release, checks the archive names that `pulumi plugin install` downloads, and
   uploads them as the `dry-run-provider-archives` artifact (kept for 7 days);
@@ -239,7 +241,8 @@ Go SDK tag, and attempt 4 published Maven Central. No attempt published a versio
    ```
 
 3. Not done yet: the provider is not in the Pulumi Registry. Open the listing PR once, as described
-   below. After it merges, later releases are picked up automatically.
+   below; nothing blocks it since `v0.2.1`. After it merges, later releases are picked up
+   automatically.
 4. Review the GitHub release notes, which GoReleaser generates from the commit messages grouped by
    conventional-commit type. Edit the release to add a short summary and links to any new examples.
 
@@ -249,7 +252,7 @@ Once the provider is listed, the registry checks for new releases twice a day an
 docs automatically, so this is needed once, after the first release. The process is described in
 [Adding a new package](https://github.com/pulumi/registry/blob/master/docs/adding-a-new-package.md).
 The registry reads everything from the latest release tag, including `docs/_index.md` and
-`docs/installation-configuration.md`. All of the following is true at `v0.1.0` (commit `b0c4ab8`):
+`docs/installation-configuration.md`. All of the following has been true since `v0.1.0`:
 
 - `provider/cmd/pulumi-resource-osano/schema.json` sets `publisher` (`John Flavan`), `logoUrl`
   (`assets/logo.png` on `main`), `displayName`, `pluginDownloadURL`, and `keywords` with
@@ -261,10 +264,8 @@ The registry reads everything from the latest release tag, including `docs/_inde
 - `vX.Y.Z` is a published GitHub release, not a draft or prerelease, and the plugin installs with the
   command above.
 
-These pages are older at `v0.1.0` than on `main`: `docs/_index.md` at `v0.1.0` still says the
-repository has discussions, which are turned off. A listing opened now would publish that overview.
-Open the listing PR after the first release after `v0.1.0`, or open it now knowing that the overview
-is corrected only when that release is published.
+The registry publishes the pages of the latest release, so the listing shows what `v0.2.1`
+documents until the next release is published.
 
 Then:
 

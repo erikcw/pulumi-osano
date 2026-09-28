@@ -54,7 +54,7 @@ class GetSessionResult:
     @pulumi.getter(name="verifiedId")
     def verified_id(self) -> _builtins.str:
         """
-        The verified ID of the session's subject.
+        The verified ID of the session's subject. Secret, because it identifies a person.
         """
         return pulumi.get(self, "verified_id")
 

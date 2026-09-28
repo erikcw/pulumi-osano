@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// The published privacy policy a consent was given under.
+    /// </summary>
     [OutputType]
     public sealed class ConsentPrivacyPolicy
     {

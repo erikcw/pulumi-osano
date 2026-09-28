@@ -24,7 +24,7 @@ public final class GetSessionResult {
      */
     private Map<String,Object> profile;
     /**
-     * @return The verified ID of the session&#39;s subject.
+     * @return The verified ID of the session&#39;s subject. Secret, because it identifies a person.
      *
      */
     private String verifiedId;
@@ -45,7 +45,7 @@ public final class GetSessionResult {
         return this.profile;
     }
     /**
-     * @return The verified ID of the session&#39;s subject.
+     * @return The verified ID of the session&#39;s subject. Secret, because it identifies a person.
      *
      */
     public String verifiedId() {

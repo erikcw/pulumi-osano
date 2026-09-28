@@ -12,11 +12,11 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-// Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+// Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano's value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
 type CookieConsentRule struct {
 	pulumi.CustomResourceState
 
-	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 	Classification pulumi.StringOutput `pulumi:"classification"`
 	// The configId of the Cookie Consent Configuration this rule belongs to.
 	ConfigId pulumi.StringOutput `pulumi:"configId"`
@@ -32,9 +32,9 @@ type CookieConsentRule struct {
 	Rule pulumi.StringOutput `pulumi:"rule"`
 	// The server-assigned integer rule ID.
 	RuleId pulumi.IntOutput `pulumi:"ruleId"`
-	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
 	RuleType pulumi.StringPtrOutput `pulumi:"ruleType"`
-	// The storage type category: cookies, scripts, iframes, or localStorage.
+	// The storage type category: cookies, scripts, iframes, localStorage.
 	StoreType pulumi.StringOutput `pulumi:"storeType"`
 	// Optional title for the rule, used in consent disclosure. Max 64 characters.
 	Title pulumi.StringPtrOutput `pulumi:"title"`
@@ -96,7 +96,7 @@ func (CookieConsentRuleState) ElementType() reflect.Type {
 }
 
 type cookieConsentRuleArgs struct {
-	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 	Classification string `pulumi:"classification"`
 	// The configId of the Cookie Consent Configuration this rule belongs to.
 	ConfigId string `pulumi:"configId"`
@@ -108,9 +108,9 @@ type cookieConsentRuleArgs struct {
 	Expiry *string `pulumi:"expiry"`
 	// The rule pattern (e.g. a cookie name pattern). Min 3, max 1000 characters.
 	Rule string `pulumi:"rule"`
-	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
 	RuleType *string `pulumi:"ruleType"`
-	// The storage type category: cookies, scripts, iframes, or localStorage.
+	// The storage type category: cookies, scripts, iframes, localStorage.
 	StoreType string `pulumi:"storeType"`
 	// Optional title for the rule, used in consent disclosure. Max 64 characters.
 	Title *string `pulumi:"title"`
@@ -120,7 +120,7 @@ type cookieConsentRuleArgs struct {
 
 // The set of arguments for constructing a CookieConsentRule resource.
 type CookieConsentRuleArgs struct {
-	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+	// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 	Classification pulumi.StringInput
 	// The configId of the Cookie Consent Configuration this rule belongs to.
 	ConfigId pulumi.StringInput
@@ -132,9 +132,9 @@ type CookieConsentRuleArgs struct {
 	Expiry pulumi.StringPtrInput
 	// The rule pattern (e.g. a cookie name pattern). Min 3, max 1000 characters.
 	Rule pulumi.StringInput
-	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+	// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
 	RuleType pulumi.StringPtrInput
-	// The storage type category: cookies, scripts, iframes, or localStorage.
+	// The storage type category: cookies, scripts, iframes, localStorage.
 	StoreType pulumi.StringInput
 	// Optional title for the rule, used in consent disclosure. Max 64 characters.
 	Title pulumi.StringPtrInput
@@ -229,7 +229,7 @@ func (o CookieConsentRuleOutput) ToCookieConsentRuleOutputWithContext(ctx contex
 	return o
 }
 
-// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+// Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 func (o CookieConsentRuleOutput) Classification() pulumi.StringOutput {
 	return o.ApplyT(func(v *CookieConsentRule) pulumi.StringOutput { return v.Classification }).(pulumi.StringOutput)
 }
@@ -269,12 +269,12 @@ func (o CookieConsentRuleOutput) RuleId() pulumi.IntOutput {
 	return o.ApplyT(func(v *CookieConsentRule) pulumi.IntOutput { return v.RuleId }).(pulumi.IntOutput)
 }
 
-// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+// Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
 func (o CookieConsentRuleOutput) RuleType() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *CookieConsentRule) pulumi.StringPtrOutput { return v.RuleType }).(pulumi.StringPtrOutput)
 }
 
-// The storage type category: cookies, scripts, iframes, or localStorage.
+// The storage type category: cookies, scripts, iframes, localStorage.
 func (o CookieConsentRuleOutput) StoreType() pulumi.StringOutput {
 	return o.ApplyT(func(v *CookieConsentRule) pulumi.StringOutput { return v.StoreType }).(pulumi.StringOutput)
 }

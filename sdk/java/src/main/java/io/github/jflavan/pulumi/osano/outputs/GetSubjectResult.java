@@ -12,7 +12,7 @@ import java.util.Objects;
 @CustomType
 public final class GetSubjectResult {
     /**
-     * @return The subject&#39;s anonymous ID, if any.
+     * @return The subject&#39;s anonymous ID, if any. Secret, because it identifies a person.
      *
      */
     private String anonymousId;
@@ -22,24 +22,24 @@ public final class GetSubjectResult {
      */
     private Boolean exists;
     /**
-     * @return The subject&#39;s Osano ID.
+     * @return The subject&#39;s Osano ID. Secret, because it identifies a person.
      *
      */
     private String subjectId;
     /**
-     * @return The subject reference that was resolved.
+     * @return The subject reference that was resolved. Secret, because it identifies a person.
      *
      */
     private String subjectRef;
     /**
-     * @return The subject&#39;s verified ID, if the subject is verified.
+     * @return The subject&#39;s verified ID, if the subject is verified. Secret, because it identifies a person.
      *
      */
     private String verifiedId;
 
     private GetSubjectResult() {}
     /**
-     * @return The subject&#39;s anonymous ID, if any.
+     * @return The subject&#39;s anonymous ID, if any. Secret, because it identifies a person.
      *
      */
     public String anonymousId() {
@@ -53,21 +53,21 @@ public final class GetSubjectResult {
         return this.exists;
     }
     /**
-     * @return The subject&#39;s Osano ID.
+     * @return The subject&#39;s Osano ID. Secret, because it identifies a person.
      *
      */
     public String subjectId() {
         return this.subjectId;
     }
     /**
-     * @return The subject reference that was resolved.
+     * @return The subject reference that was resolved. Secret, because it identifies a person.
      *
      */
     public String subjectRef() {
         return this.subjectRef;
     }
     /**
-     * @return The subject&#39;s verified ID, if the subject is verified.
+     * @return The subject&#39;s verified ID, if the subject is verified. Secret, because it identifies a person.
      *
      */
     public String verifiedId() {

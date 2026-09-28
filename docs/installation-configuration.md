@@ -59,7 +59,7 @@ Every package's registry page, how each is published, and how to verify release 
 | Node.js | Node.js 22 or later, which current `@pulumi/pulumi` releases require |
 | Python | Python 3.10 or later and `pulumi>=3.231.0,<4.0.0` |
 | Go | Go 1.26.6 or later and `github.com/pulumi/pulumi/sdk/v3` v3.264.0 or later |
-| .NET | .NET 8 or later, tested with .NET 8 and .NET 10 (the package targets `net6.0`, which NuGet resolves for any later framework) |
+| .NET | .NET 8 or later, tested with .NET 8 and .NET 10 (the package targets `net8.0`) |
 | Java | Java 11 or later, with `com.pulumi:pulumi` as a dependency of your program |
 
 Use Pulumi CLI 3.252 or later to import existing resources with `pulumi import`.
@@ -92,7 +92,7 @@ pulumi config set --secret osano:osanoApiKey <customer-rest-api-key>
 pulumi config set --secret osano:unifiedConsentApiKey <unified-consent-api-key>
 ```
 
-Or provide them through environment variables, for example in CI. An environment variable takes precedence over the stack configuration when it is set:
+Or provide them through environment variables, for example in CI. An environment variable is used only when the stack does not configure the key; when both are set and differ, the provider uses the stack configuration and warns:
 
 ```bash
 export OSANO_API_KEY="<customer-rest-api-key>"
@@ -103,17 +103,17 @@ A resource or function whose key is missing fails with an error naming the confi
 
 ## Configuration reference
 
-All settings are optional at the provider level.
+All settings are optional at the provider level. A stack configuration value takes precedence over its environment variable, which is used only when the value is unset; the provider warns when both are set and differ. The provider validates its configuration when Pulumi configures it, so an invalid base URL or timeout fails before any request.
 
 | Name | Environment variable | Secret | Default | Description |
 | --- | --- | --- | --- | --- |
 | `osanoApiKey` | `OSANO_API_KEY` | Yes | | Osano Customer REST API key for Cookie Consent resources and functions and the `sendSubjectCode` and `verifySubjectCode` functions. |
 | `unifiedConsentApiKey` | `OSANO_UC_API_KEY` | Yes | | Unified Consent API key for the `Consent` resource and the Unified Consent functions. `sendSubjectCode` and `verifySubjectCode` also send it, so it is enough for them without `osanoApiKey`. |
-| `apiBaseUrl` | `OSANO_API_BASE_URL` | No | `https://uc.api.osano.com` | Base URL of the Unified Consent API, including any path prefix. Osano serves the API only from the default host and routes regional processing internally, so override it only for a custom domain. |
-| `customerBaseUrl` | | No | `https://api.osano.com` | Base URL of the Customer REST API. |
-| `requestTimeoutSeconds` | `OSANO_API_TIMEOUT_SECONDS` | No | `60` | HTTP request timeout, in seconds, for Customer REST API and Unified Consent calls. The environment variable is used only when it is a positive integer. |
-| `ucApiKey` | | Yes | | Deprecated: use `unifiedConsentApiKey`. Read only when neither `unifiedConsentApiKey` nor `OSANO_UC_API_KEY` is set. |
-| `ucBaseUrl` | | No | | Deprecated: use `apiBaseUrl`. Read only when neither `apiBaseUrl` nor `OSANO_API_BASE_URL` is set. |
+| `apiBaseUrl` | `OSANO_API_BASE_URL` | No | `https://uc.api.osano.com` | Base URL of the Unified Consent API, including any path prefix. Must use `https`; `http` is accepted only for loopback hosts, as used by local mocks. |
+| `customerBaseUrl` | `OSANO_CUSTOMER_BASE_URL` | No | `https://api.osano.com` | Base URL of the Customer REST API. Must use `https`; `http` is accepted only for loopback hosts. |
+| `requestTimeoutSeconds` | `OSANO_API_TIMEOUT_SECONDS` | No | `60` | Timeout, in seconds, for each HTTP request attempt to the Osano APIs, from 1 to 3600. A retried request waits for each attempt separately. An environment variable value outside that range is ignored with a warning. |
+| `ucApiKey` | | Yes | | Deprecated: use `unifiedConsentApiKey`. Read only when `unifiedConsentApiKey` is unset; like it, it takes precedence over `OSANO_UC_API_KEY`. |
+| `ucBaseUrl` | | No | | Deprecated: use `apiBaseUrl`. Read only when `apiBaseUrl` is unset; like it, it takes precedence over `OSANO_API_BASE_URL`. |
 
 Changing provider configuration, such as rotating an API key or adding `requestTimeoutSeconds`, updates the provider in place. It never replaces the Cookie Consent resources the provider manages.
 
@@ -145,6 +145,7 @@ pulumi config set osano:requestTimeoutSeconds 120
 export OSANO_API_KEY="<customer-rest-api-key>"
 export OSANO_UC_API_KEY="<unified-consent-api-key>"
 export OSANO_API_BASE_URL="https://uc.api.osano.com"
+export OSANO_CUSTOMER_BASE_URL="https://api.osano.com"
 export OSANO_API_TIMEOUT_SECONDS=120
 pulumi up
 ```

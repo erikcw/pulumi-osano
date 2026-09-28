@@ -52,11 +52,17 @@ namespace Community.Pulumi.Osano
         [Input("regionCodeOverride")]
         public string? RegionCodeOverride { get; set; }
 
+        [Input("subjectRef", required: true)]
+        private string? _subjectRef;
+
         /// <summary>
         /// The subject reference to look up: an anonymous ID, verified ID, or session ID.
         /// </summary>
-        [Input("subjectRef", required: true)]
-        public string SubjectRef { get; set; } = null!;
+        public string? SubjectRef
+        {
+            get => _subjectRef;
+            set => _subjectRef = value;
+        }
 
         public GetUnifiedConsentArgs()
         {
@@ -84,11 +90,21 @@ namespace Community.Pulumi.Osano
         [Input("regionCodeOverride")]
         public Input<string>? RegionCodeOverride { get; set; }
 
+        [Input("subjectRef", required: true)]
+        private Input<string>? _subjectRef;
+
         /// <summary>
         /// The subject reference to look up: an anonymous ID, verified ID, or session ID.
         /// </summary>
-        [Input("subjectRef", required: true)]
-        public Input<string> SubjectRef { get; set; } = null!;
+        public Input<string>? SubjectRef
+        {
+            get => _subjectRef;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _subjectRef = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         public GetUnifiedConsentInvokeArgs()
         {
@@ -101,7 +117,7 @@ namespace Community.Pulumi.Osano
     public sealed class GetUnifiedConsentResult
     {
         /// <summary>
-        /// Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+        /// Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
         /// </summary>
         public readonly ImmutableArray<ImmutableDictionary<string, object>> Conflicts;
         /// <summary>
@@ -109,11 +125,11 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly bool Exists;
         /// <summary>
-        /// The subject reference that was looked up.
+        /// The subject reference that was looked up. Secret, because it identifies a person.
         /// </summary>
         public readonly string SubjectRef;
         /// <summary>
-        /// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+        /// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject's IP address and user agent.
         /// </summary>
         public readonly ImmutableDictionary<string, object> UnifiedConsent;
 

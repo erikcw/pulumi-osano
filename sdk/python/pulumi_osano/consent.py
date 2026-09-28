@@ -204,7 +204,7 @@ class Consent(pulumi.CustomResource):
                  tags: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  __props__=None):
         """
-        Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+        Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -226,7 +226,7 @@ class Consent(pulumi.CustomResource):
                  args: ConsentArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+        Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
 
         :param str resource_name: The name of the resource.
         :param ConsentArgs args: The arguments to use to populate this resource's properties.
@@ -272,12 +272,12 @@ class Consent(pulumi.CustomResource):
             __props__.__dict__["session_token"] = None if session_token is None else pulumi.Output.secret(session_token)
             if subject is None and not opts.urn:
                 raise TypeError("Missing required property 'subject'")
-            __props__.__dict__["subject"] = subject
+            __props__.__dict__["subject"] = None if subject is None else pulumi.Output.secret(subject)
             __props__.__dict__["tags"] = tags
             __props__.__dict__["consent_id"] = None
             __props__.__dict__["gpc_actions"] = None
             __props__.__dict__["last_synced"] = None
-        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["sessionToken"])
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["sessionToken", "subject"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["actions[*]", "attributes.*", "compliance", "countryCodeOverride", "jurisdiction", "origin", "regionCodeOverride", "sessionToken", "subject", "tags[*]"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
@@ -378,7 +378,7 @@ class Consent(pulumi.CustomResource):
     @pulumi.getter(name="lastSynced")
     def last_synced(self) -> pulumi.Output[_builtins.str]:
         """
-        Timestamp of the last refresh from the Osano API (RFC3339).
+        RFC 3339 timestamp of the submission that created this resource.
         """
         return pulumi.get(self, "last_synced")
 

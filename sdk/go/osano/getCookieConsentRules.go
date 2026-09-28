@@ -23,11 +23,13 @@ func GetCookieConsentRules(ctx *pulumi.Context, args *GetCookieConsentRulesArgs,
 }
 
 type GetCookieConsentRulesArgs struct {
-	// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+	// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 	Classification *string `pulumi:"classification"`
 	// The Osano Cookie Consent config ID whose rules are listed.
 	ConfigId string `pulumi:"configId"`
-	// Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+	// Stop after this many rules. Unset or 0 returns every matching rule.
+	MaxResults *int `pulumi:"maxResults"`
+	// Only return rules of this storage type: cookies, scripts, iframes, localStorage.
 	StoreType *string `pulumi:"storeType"`
 }
 
@@ -44,11 +46,13 @@ func GetCookieConsentRulesOutput(ctx *pulumi.Context, args GetCookieConsentRules
 }
 
 type GetCookieConsentRulesOutputArgs struct {
-	// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+	// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
 	Classification pulumi.StringPtrInput `pulumi:"classification"`
 	// The Osano Cookie Consent config ID whose rules are listed.
 	ConfigId pulumi.StringInput `pulumi:"configId"`
-	// Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+	// Stop after this many rules. Unset or 0 returns every matching rule.
+	MaxResults pulumi.IntPtrInput `pulumi:"maxResults"`
+	// Only return rules of this storage type: cookies, scripts, iframes, localStorage.
 	StoreType pulumi.StringPtrInput `pulumi:"storeType"`
 }
 

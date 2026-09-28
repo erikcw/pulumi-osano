@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	p "github.com/pulumi/pulumi-go-provider"
@@ -483,17 +485,20 @@ func TestCookieConsentRuleLifecycle(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy ID read normalizes to a composite ID", func(t *testing.T) {
+	t.Run("read lists only the rule's store type", func(t *testing.T) {
 		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assertCMPRequest(t, r, http.MethodGet, "/v1/cookie-consent/configs/config-abc/rules")
+			if got := r.URL.Query().Get("type"); got != "cookie" {
+				t.Errorf("expected the refresh to filter on type=cookie, got %q", got)
+			}
 			writeCMPRulesListResponse(t, w, cmpRulesListResponse{Items: []cmpRuleResponse{cmpRuleResponseFixture()}})
 		}))
 		defer api.Close()
 
 		server := newCMPProviderServer(t, api.URL)
 		resp, err := server.Read(p.ReadRequest{
-			ID:         "42",
-			Urn:        cmpURN("CookieConsentRule", "legacy"),
+			ID:         "config-abc/42",
+			Urn:        cmpURN("CookieConsentRule", "filtered"),
 			Properties: ruleStateProperties(),
 			Inputs:     ruleInputProperties(),
 		})
@@ -501,7 +506,54 @@ func TestCookieConsentRuleLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		if resp.ID != "config-abc/42" {
-			t.Fatalf("expected canonical rule ID, got %q", resp.ID)
+			t.Fatalf("expected the canonical rule ID, got %q", resp.ID)
+		}
+	})
+
+	t.Run("read rejects an ID without a config ID", func(t *testing.T) {
+		server := newCMPProviderServer(t, "http://127.0.0.1:1")
+		_, err := server.Read(p.ReadRequest{
+			ID:         "42",
+			Urn:        cmpURN("CookieConsentRule", "bare"),
+			Properties: ruleStateProperties(),
+			Inputs:     ruleInputProperties(),
+		})
+		if err == nil || !strings.Contains(err.Error(), "expected <configId>/<ruleId>") {
+			t.Fatalf("expected a composite ID error, got %v", err)
+		}
+	})
+
+	// After a dashboard deletion the list endpoint answers 200 without the rule, not 404.
+	t.Run("read returns empty ID when the rule is missing from the list", func(t *testing.T) {
+		requestCount := 0
+		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+			assertCMPRequest(t, r, http.MethodGet, "/v1/cookie-consent/configs/config-abc/rules")
+			other := cmpRuleResponseFixture()
+			other.RuleID = 7
+			if requestCount == 1 {
+				writeCMPRulesListResponse(t, w, cmpRulesListResponse{Items: []cmpRuleResponse{other}, Next: "page-2"})
+				return
+			}
+			writeCMPRulesListResponse(t, w, cmpRulesListResponse{Items: []cmpRuleResponse{other}})
+		}))
+		defer api.Close()
+
+		server := newCMPProviderServer(t, api.URL)
+		resp, err := server.Read(p.ReadRequest{
+			ID:         "config-abc/42",
+			Urn:        cmpURN("CookieConsentRule", "deleted-upstream"),
+			Properties: ruleStateProperties(),
+			Inputs:     ruleInputProperties(),
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.ID != "" {
+			t.Fatalf("expected the rule to be reported as deleted, got ID %q", resp.ID)
+		}
+		if requestCount != 2 {
+			t.Fatalf("expected both pages to be searched, got %d requests", requestCount)
 		}
 	})
 
@@ -544,23 +596,6 @@ func TestCookieConsentRuleLifecycle(t *testing.T) {
 		}
 	})
 
-	t.Run("delete accepts a legacy ID", func(t *testing.T) {
-		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assertCMPRequest(t, r, http.MethodDelete, "/v1/cookie-consent/rules/42")
-			w.WriteHeader(http.StatusNoContent)
-		}))
-		defer api.Close()
-
-		server := newCMPProviderServer(t, api.URL)
-		if err := server.Delete(p.DeleteRequest{
-			ID:         "42",
-			Urn:        cmpURN("CookieConsentRule", "legacy-delete"),
-			Properties: ruleStateProperties(),
-		}); err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	t.Run("delete propagates non-404 errors", func(t *testing.T) {
 		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -583,24 +618,16 @@ func TestParseRuleResourceID(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name          string
-		id            string
-		stateConfigID string
-		wantConfigID  string
-		wantRuleID    int
-		wantCanonical string
-		wantError     bool
+		name         string
+		id           string
+		wantConfigID string
+		wantRuleID   int
+		wantError    bool
 	}{
-		{name: "composite", id: "config-abc/42", wantConfigID: "config-abc", wantRuleID: 42, wantCanonical: "config-abc/42"},
-		{
-			name: "opaque config ID", id: "customer/config/abc/42", wantConfigID: "customer/config/abc",
-			wantRuleID: 42, wantCanonical: "customer/config/abc/42",
-		},
-		{
-			name: "legacy", id: "42", stateConfigID: "config-abc", wantConfigID: "config-abc",
-			wantRuleID: 42, wantCanonical: "config-abc/42",
-		},
-		{name: "legacy missing config", id: "42", wantError: true},
+		{name: "composite", id: "config-abc/42", wantConfigID: "config-abc", wantRuleID: 42},
+		{name: "opaque config ID", id: "customer/config/abc/42", wantConfigID: "customer/config/abc", wantRuleID: 42},
+		// No released provider ever wrote a bare rule ID; the composite form is the only one accepted.
+		{name: "bare rule ID", id: "42", wantError: true},
 		{name: "missing rule ID", id: "config-abc/", wantError: true},
 		{name: "non-numeric rule ID", id: "config-abc/not-a-number", wantError: true},
 		{name: "missing config ID", id: "/42", wantError: true},
@@ -609,7 +636,7 @@ func TestParseRuleResourceID(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			configID, ruleID, canonicalID, err := parseRuleResourceID(tc.id, tc.stateConfigID)
+			configID, ruleID, err := parseRuleResourceID(tc.id)
 			if tc.wantError {
 				if err == nil {
 					t.Fatal("expected error")
@@ -619,9 +646,8 @@ func TestParseRuleResourceID(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if configID != tc.wantConfigID || ruleID != tc.wantRuleID || canonicalID != tc.wantCanonical {
-				t.Fatalf("got (%q, %d, %q), want (%q, %d, %q)",
-					configID, ruleID, canonicalID, tc.wantConfigID, tc.wantRuleID, tc.wantCanonical)
+			if configID != tc.wantConfigID || ruleID != tc.wantRuleID {
+				t.Fatalf("got (%q, %d), want (%q, %d)", configID, ruleID, tc.wantConfigID, tc.wantRuleID)
 			}
 		})
 	}
@@ -653,7 +679,7 @@ func TestFindCookieConsentRule(t *testing.T) {
 		}))
 		defer api.Close()
 
-		found, ok, err := findCookieConsentRule(t.Context(), newCMPJSONClient(t, api.URL), "config-abc", 42)
+		found, ok, err := findCookieConsentRule(t.Context(), newCMPJSONClient(t, api.URL), "config-abc", 42, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -665,15 +691,51 @@ func TestFindCookieConsentRule(t *testing.T) {
 		}
 	})
 
+	t.Run("filters on the store type when it is known", func(t *testing.T) {
+		var gotType atomic.Value
+		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotType.Store(r.URL.Query().Get("type"))
+			writeCMPRulesListResponse(t, w, cmpRulesListResponse{Items: []cmpRuleResponse{cmpRuleResponseFixture()}})
+		}))
+		defer api.Close()
+
+		client := newCMPJSONClient(t, api.URL)
+		if _, _, err := findCookieConsentRule(t.Context(), client, "config-abc", 42, "scripts"); err != nil {
+			t.Fatal(err)
+		}
+		if got, _ := gotType.Load().(string); got != "script" {
+			t.Fatalf("expected type=script, got %q", got)
+		}
+		if _, _, err := findCookieConsentRule(t.Context(), client, "config-abc", 42, "pixels"); err == nil {
+			t.Fatal("expected an unknown store type to be rejected before any request")
+		}
+	})
+
 	t.Run("rejects a repeated cursor", func(t *testing.T) {
 		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			writeCMPRulesListResponse(t, w, cmpRulesListResponse{Next: "repeat"})
 		}))
 		defer api.Close()
 
-		_, _, err := findCookieConsentRule(t.Context(), newCMPJSONClient(t, api.URL), "config-abc", 42)
+		_, _, err := findCookieConsentRule(t.Context(), newCMPJSONClient(t, api.URL), "config-abc", 42, "")
 		if err == nil || !strings.Contains(err.Error(), "repeated cursor") {
 			t.Fatalf("expected repeated cursor error, got %v", err)
+		}
+	})
+
+	t.Run("stops after the page cap", func(t *testing.T) {
+		var pages atomic.Int32
+		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			writeCMPRulesListResponse(t, w, cmpRulesListResponse{Next: fmt.Sprintf("page-%d", pages.Add(1))})
+		}))
+		defer api.Close()
+
+		_, _, err := findCookieConsentRule(t.Context(), newCMPJSONClient(t, api.URL), "config-abc", 42, "")
+		if err == nil || !strings.Contains(err.Error(), "exceeded 1000 pages") {
+			t.Fatalf("expected a page cap error, got %v", err)
+		}
+		if got := pages.Load(); got != maxListPages {
+			t.Fatalf("expected exactly %d pages to be fetched, got %d", maxListPages, got)
 		}
 	})
 }
