@@ -25,7 +25,7 @@ For Unified Consent, add a custom attribute (for example `attributes["pulumiDepl
 
 For Cookie Consent, `getCookieConsentAuditLog` returns Osano's audit events with their type (for example `cmp.configPublished` or `cmp.configUpdated`), actor, and timestamp. Match a publication or configuration change against the time of the Pulumi update that made it, or find edits made in the Osano dashboard.
 
-Every request the provider sends identifies it with the User-Agent `pulumi-osano/<version>` (for example `pulumi-osano/0.2.1`).
+Every request the provider sends identifies it with the User-Agent `pulumi-osano/<version>` (for example `pulumi-osano/0.3.0`).
 
 ## Troubleshooting Checklist
 

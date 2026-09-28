@@ -56,10 +56,10 @@ The examples in this folder are repo-local development examples. The Go example 
 
 To run an example with the published packages instead of the clone's SDKs, copy its language directory out of the repository and switch the SDK reference:
 
-- TypeScript: `npm install @jflavan/pulumi-osano@0.2.1` (replaces the `file:` dependency in `package.json`). Current `@pulumi/pulumi` releases require Node.js 22 or later.
-- Python: in `requirements.txt`, replace `-e ../../../sdk/python` with `pulumi-osano==0.2.1`. It requires Python 3.10 or later.
-- Go: `go mod edit -dropreplace=github.com/jflavan/pulumi-osano/sdk/go/osano -require=github.com/jflavan/pulumi-osano/sdk/go/osano@v0.2.1 && go mod tidy`. It requires Go 1.26.6 or later.
+- TypeScript: `npm install @jflavan/pulumi-osano@0.3.0` (replaces the `file:` dependency in `package.json`). Current `@pulumi/pulumi` releases require Node.js 22 or later.
+- Python: in `requirements.txt`, replace `-e ../../../sdk/python` with `pulumi-osano==0.3.0`. It requires Python 3.10 or later.
+- Go: `go mod edit -dropreplace=github.com/jflavan/pulumi-osano/sdk/go/osano -require=github.com/jflavan/pulumi-osano/sdk/go/osano@v0.3.0 && go mod tidy`. It requires Go 1.26.6 or later.
 
-Skip the local plugin install in step 4 and the mise note above: the published SDKs request provider plugin 0.2.1, and Pulumi downloads it from GitHub on the first `pulumi preview` or `pulumi up`. [docs/PUBLISHING.md](../../docs/PUBLISHING.md) lists every published package and its requirements.
+Skip the local plugin install in step 4 and the mise note above: the published SDKs request provider plugin 0.3.0, and Pulumi downloads it from GitHub on the first `pulumi preview` or `pulumi up`. [docs/PUBLISHING.md](../../docs/PUBLISHING.md) lists every published package and its requirements.
 
 Do not commit these changes to the repository: CI builds the examples against the local SDKs.

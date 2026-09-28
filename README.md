@@ -52,23 +52,23 @@ Add the SDK for your language to a Pulumi program. Each package is published to 
 - **Python**: [`pulumi-osano`](https://pypi.org/project/pulumi-osano/) on PyPI, imported as `pulumi_osano`: `pip install pulumi-osano`
 - **Go**: [`github.com/jflavan/pulumi-osano/sdk/go/osano`](https://pkg.go.dev/github.com/jflavan/pulumi-osano/sdk/go/osano): `go get github.com/jflavan/pulumi-osano/sdk/go/osano`
 - **.NET**: [`Community.Pulumi.Osano`](https://www.nuget.org/packages/Community.Pulumi.Osano) on NuGet: `dotnet add package Community.Pulumi.Osano`
-- **Java**: [`io.github.jflavan.pulumi:pulumi-osano`](https://central.sonatype.com/artifact/io.github.jflavan.pulumi/pulumi-osano) on Maven Central. With Gradle, `implementation("io.github.jflavan.pulumi:pulumi-osano:0.2.1")`; with Maven:
+- **Java**: [`io.github.jflavan.pulumi:pulumi-osano`](https://central.sonatype.com/artifact/io.github.jflavan.pulumi/pulumi-osano) on Maven Central. With Gradle, `implementation("io.github.jflavan.pulumi:pulumi-osano:0.3.0")`; with Maven:
 
   ```xml
   <dependency>
     <groupId>io.github.jflavan.pulumi</groupId>
     <artifactId>pulumi-osano</artifactId>
-    <version>0.2.1</version>
+    <version>0.3.0</version>
   </dependency>
   ```
 
 The SDK declares its provider plugin, and Pulumi downloads the matching `pulumi-resource-osano` release from GitHub the first time you run `pulumi preview` or `pulumi up`. To install it manually, pin the version and point Pulumi at the GitHub releases:
 
 ```bash
-pulumi plugin install resource osano 0.2.1 --server github://api.github.com/jflavan/pulumi-osano
+pulumi plugin install resource osano 0.3.0 --server github://api.github.com/jflavan/pulumi-osano
 ```
 
-The Java and plugin commands pin 0.2.1, the current release. [Package publishing](https://github.com/jflavan/pulumi-osano/blob/main/docs/PUBLISHING.md) lists every published artifact, how each one is released, and how to verify its provenance or signature.
+The Java and plugin commands pin 0.3.0, the current release. [Package publishing](https://github.com/jflavan/pulumi-osano/blob/main/docs/PUBLISHING.md) lists every published artifact, how each one is released, and how to verify its provenance or signature.
 
 ## Quick start: publish a consent script
 

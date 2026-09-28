@@ -32,7 +32,7 @@ The Osano (Unofficial) provider is available as a package in these Pulumi langua
   dotnet add package Community.Pulumi.Osano
   ```
 
-- Java: [`io.github.jflavan.pulumi:pulumi-osano`](https://central.sonatype.com/artifact/io.github.jflavan.pulumi/pulumi-osano) on Maven Central. Replace `VERSION` with the release you want (for example `0.2.1`).
+- Java: [`io.github.jflavan.pulumi:pulumi-osano`](https://central.sonatype.com/artifact/io.github.jflavan.pulumi/pulumi-osano) on Maven Central. Replace `VERSION` with the release you want (for example `0.3.0`).
 
   Maven:
 
@@ -68,7 +68,7 @@ Use Pulumi CLI 3.252 or later to import existing resources with `pulumi import`.
 
 The SDK packages record the plugin download location (`github://api.github.com/jflavan/pulumi-osano`), so Pulumi downloads the matching `pulumi-resource-osano` plugin from the provider's [GitHub releases](https://github.com/jflavan/pulumi-osano/releases) the first time you run `pulumi preview` or `pulumi up`. Pin the SDK package to an exact version and the engine installs the plugin of the same version.
 
-To install the plugin by hand, for example on a machine that runs Pulumi YAML programs or before going offline, run the following, replacing `VERSION` with your SDK's version (for example `0.2.1`):
+To install the plugin by hand, for example on a machine that runs Pulumi YAML programs or before going offline, run the following, replacing `VERSION` with your SDK's version (for example `0.3.0`):
 
 ```bash
 pulumi plugin install resource osano VERSION --server github://api.github.com/jflavan/pulumi-osano
