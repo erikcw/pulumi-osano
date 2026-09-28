@@ -50,10 +50,16 @@ updates:
         patterns:
           - "*"
     # Dependabot follows the example's ProjectReference into sdk/dotnet and proposes edits to the
-    # generated csproj. Drop those hunks when merging: `make codegen` owns that file. The SourceLink
-    # package exists only there, so it is ignored outright.
+    # generated csproj, which `make codegen` owns and rewrites. The SourceLink package exists only
+    # there, so it is ignored outright. The Pulumi reference is a version range whose floor the
+    # generator sets for the SDK and the examples set by hand, so its minor and patch bumps are
+    # ignored too; a Pulumi 4 release still opens a PR.
     ignore:
       - dependency-name: Microsoft.SourceLink.GitHub
+      - dependency-name: Pulumi
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
   - package-ecosystem: pip
     directory: /examples/quickstart/python
     schedule:
