@@ -314,7 +314,7 @@ jobs:
     name: publish_sdks
     permissions:
       id-token: write  # Required for npm and PyPI Trusted Publishing, NuGet OIDC login, npm provenance and attestations
-      contents: read
+      contents: write  # gh release upload of the attested NuGet package
       attestations: write  # Required for actions/attest-build-provenance on the NuGet package
     steps:
       - name: Checkout Repo
@@ -403,12 +403,18 @@ jobs:
           fi
           dotnet nuget push "${packages[0]}" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
-      # nuget.org signs the package but records no build provenance; attest the file that was pushed so
-      # `gh attestation verify <package>.nupkg --owner jflavan` works as it does for the plugin archives.
+      # nuget.org records no build provenance and re-signs every package it receives, so the copy it
+      # serves has a different digest from the file pushed above. Attest the pushed file and attach it
+      # to the GitHub release, where `gh attestation verify <package>.nupkg --owner jflavan` verifies it
+      # as it does the plugin archives.
       - name: Attest the NuGet package
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: sdk/dotnet/bin/Release/*.nupkg
+      - name: Attach the attested NuGet package to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" sdk/dotnet/bin/Release/*.nupkg --clobber
 
   # Dry-run counterpart of `publish_sdks`: read-only registry checks, no credentials.
   publish_sdks_dry_run:

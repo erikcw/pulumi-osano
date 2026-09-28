@@ -74,7 +74,7 @@ This provider implements several security measures:
 - **Package provenance and signatures** (see [docs/PUBLISHING.md](docs/PUBLISHING.md) to verify each one):
   - PyPI: published with trusted publishing from `release.yml`, with PyPI publish attestations for the wheel and sdist.
   - npm: `0.1.0` was published by hand from the CI-built package and has no provenance statement. Later versions are published with trusted publishing from `release.yml`, with npm provenance. Registry signatures verify with `npm audit signatures`.
-  - NuGet: published from `release.yml` with NuGet trusted publishing (a short-lived OIDC login, no stored API key). From `0.3.0`, the package also has a GitHub build provenance attestation (`gh attestation verify community.pulumi.osano.X.Y.Z.nupkg --owner jflavan`).
+  - NuGet: published from `release.yml` with NuGet trusted publishing (a short-lived OIDC login, no stored API key). From `0.3.0`, the package also has a GitHub build provenance attestation; verify the copy attached to the GitHub release with `gh attestation verify Community.Pulumi.Osano.X.Y.Z.nupkg --owner jflavan` (nuget.org re-signs the copy it serves).
   - Maven Central: every artifact is signed with the release signing key `5277 E261 0B7E 7021 6871  969A 4809 7CF9 4C3F 74F3`.
   - Go: module checksums are recorded in the Go checksum database (`sum.golang.org`).
 - **Code Scanning**: GitHub CodeQL (`security-extended` queries) analyzes the Go provider, the generated Go, Node.js, Python, .NET, and Java SDKs, the Python, TypeScript, and C# code, and the GitHub Actions workflows on every pull request to `main`, every push to `main`, and weekly. Pull requests that introduce a new CodeQL alert cannot be merged
