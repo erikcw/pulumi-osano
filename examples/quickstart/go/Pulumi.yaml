@@ -1,3 +1,0 @@
-name: osano-quickstart-go
-runtime: go
-description: Submit a consent decision using the pulumi-osano provider

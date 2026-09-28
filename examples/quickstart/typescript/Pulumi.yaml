@@ -1,3 +1,0 @@
-name: osano-quickstart-typescript
-runtime: nodejs
-description: Submit a consent decision using the pulumi-osano provider

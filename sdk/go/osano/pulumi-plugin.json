@@ -1,6 +1,6 @@
 {
   "resource": true,
   "name": "osano",
-  "version": "0.1.0-alpha.0+dev",
+  "version": "0.3.0",
   "server": "github://api.github.com/jflavan/pulumi-osano"
 }

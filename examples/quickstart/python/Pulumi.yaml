@@ -1,6 +1,0 @@
-name: osano-quickstart-python
-runtime:
-  name: python
-  options:
-    virtualenv: venv
-description: Submit a consent decision using the pulumi-osano provider

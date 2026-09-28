@@ -1,3 +1,0 @@
-name: osano-cookie-consent-csharp
-runtime: dotnet
-description: Creates, publishes, and exports a hosted Osano CMP script.

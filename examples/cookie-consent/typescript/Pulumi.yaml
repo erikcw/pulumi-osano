@@ -1,3 +1,0 @@
-name: osano-cookie-consent-typescript
-runtime: nodejs
-description: Creates, publishes, and exports a hosted Osano CMP script.
