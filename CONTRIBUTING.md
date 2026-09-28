@@ -143,6 +143,7 @@ A maintainer releases by pushing a `vX.Y.Z` tag. That runs `.github/workflows/re
 
 - [docs/PUBLISHING.md](docs/PUBLISHING.md): every published package, install commands, and how to verify provenance and signatures.
 - [docs/RELEASE_GUIDE.md](docs/RELEASE_GUIDE.md) and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md): how maintainers dry-run, cut, and recover a release.
+- [docs/DEPENDENCY_MAINTENANCE.md](docs/DEPENDENCY_MAINTENANCE.md): how the autobot routine rolls Dependabot's updates into one verified pull request and merges it, and the prompt it runs.
 
 ## Project Structure
 
