@@ -15,7 +15,7 @@ which:
    checksums, and SBOMs, and attests their build provenance (`publish`);
 3. publishes the Node.js SDK to npm, the Python SDK to PyPI, and the .NET SDK to NuGet
    (`publish_sdks`, all with trusted publishing; the pushed `.nupkg` gets a build provenance
-   attestation), and the Java SDK to Maven Central (`publish_java_sdk`, signed with the release
+   attestation and is attached to the GitHub release), and the Java SDK to Maven Central (`publish_java_sdk`, signed with the release
    signing key below);
 4. pushes the `sdk/go/osano/vX.Y.Z` tag for the Go SDK (`publish_go_sdk`).
 

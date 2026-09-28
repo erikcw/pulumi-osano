@@ -83,7 +83,8 @@ Use this checklist whenever publishing a new `pulumi-osano` provider release.
      `pulumi plugin install resource osano X.Y.Z --server github://api.github.com/jflavan/pulumi-osano`.
    - Verify provenance and signatures as described in `docs/PUBLISHING.md` (for example
      `gh attestation verify pulumi-resource-osano-vX.Y.Z-linux-amd64.tar.gz --owner jflavan`, and
-     the same for the `.nupkg` downloaded from nuget.org).
+     the same for the `Community.Pulumi.Osano.X.Y.Z.nupkg` asset on the GitHub release; the copy
+     nuget.org serves is re-signed and verifies with `dotnet nuget verify` instead).
      Allow 10 to 30 minutes for Maven Central to reach `repo1.maven.org`, and use
      `npm view --prefer-online` if npm shows a stale 404.
    - The npm bootstrap was done for `v0.1.0`. It is needed again only for a brand-new npm

@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Until 1.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The attested NuGet package is attached to each GitHub release as
+  `Community.Pulumi.Osano.X.Y.Z.nupkg`, because nuget.org re-signs the package it serves and that
+  copy no longer matches the attested digest. The `0.3.0` release has the file attached by hand.
+
 ## [0.3.0] - 2026-09-28
 
 This release comes out of a production-readiness review of the provider, its CI, and its
@@ -97,8 +103,9 @@ documentation. It contains breaking changes; upgrade notes:
   configurations.
 - Supply chain and CI: every third-party GitHub Action is pinned to a commit SHA, with Dependabot
   updates for Actions, Go modules, npm, NuGet, pip, and the devcontainer; the NuGet package of each
-  release has a GitHub build provenance attestation (`gh attestation verify <package>.nupkg --owner
-  jflavan`), like the plugin archives; a release publishes only after a new `verify` job (lint, e2e
+  release has a GitHub build provenance attestation (verify the copy attached to the GitHub release
+  with `gh attestation verify <package>.nupkg --owner jflavan`; nuget.org re-signs the copy it
+  serves); a release publishes only after a new `verify` job (lint, e2e
   compilation, script tests, and the engine-level pipeline suite) passes; CodeQL also analyzes the
   C# and Java SDKs and examples; workflows check out without persisted credentials, and test jobs
   run without a `GITHUB_TOKEN`; the pipeline suite also runs on every push to `main`; and the
