@@ -82,11 +82,12 @@ func newHarness(ctx context.Context, t *testing.T, versions ...string) *harness 
 		"PULUMI_DEBUG_COMMANDS": "true",
 		// Fail instead of downloading anything: every plugin the program needs is installed below.
 		"PULUMI_DISABLE_AUTOMATIC_PLUGIN_ACQUISITION": "true",
-		// The provider prefers these over stack config; clear them so a developer's real credentials
-		// or overrides never reach the mock.
+		// The provider reads these when the stack configuration leaves a value unset; clear them so
+		// a developer's real credentials or overrides never reach the mock.
 		"OSANO_API_KEY":             "",
 		"OSANO_UC_API_KEY":          "",
 		"OSANO_API_BASE_URL":        "",
+		"OSANO_CUSTOMER_BASE_URL":   "",
 		"OSANO_API_TIMEOUT_SECONDS": "",
 	}
 	for key, value := range h.env {
