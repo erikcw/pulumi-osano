@@ -65,7 +65,7 @@ class GetSubjectProfileResult:
     @pulumi.getter(name="subjectId")
     def subject_id(self) -> _builtins.str:
         """
-        The subject ID that was looked up.
+        The subject ID that was looked up. Secret, because it identifies a person.
         """
         return pulumi.get(self, "subject_id")
 
@@ -87,7 +87,7 @@ def get_subject_profile(subject_id: Optional[_builtins.str] = None,
     """
     Reads a subject's profile (email and subject ID) using the Unified Consent API key. The outputs are secrets because they hold personal data.
 
-    :param _builtins.str subject_id: The subject ID whose profile is returned.
+    :param _builtins.str subject_id: The subject ID whose profile is returned. Secret, because it identifies a person.
     """
     __args__ = dict()
     __args__['subjectId'] = subject_id
@@ -104,7 +104,7 @@ def get_subject_profile_output(subject_id: pulumi.Input[Optional[_builtins.str]]
     """
     Reads a subject's profile (email and subject ID) using the Unified Consent API key. The outputs are secrets because they hold personal data.
 
-    :param _builtins.str subject_id: The subject ID whose profile is returned.
+    :param _builtins.str subject_id: The subject ID whose profile is returned. Secret, because it identifies a person.
     """
     __args__ = dict()
     __args__['subjectId'] = subject_id

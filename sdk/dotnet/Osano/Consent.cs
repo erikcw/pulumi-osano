@@ -11,7 +11,7 @@ using Pulumi;
 namespace Community.Pulumi.Osano
 {
     /// <summary>
-    /// Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+    /// Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
     /// </summary>
     [OsanoResourceType("osano:index:Consent")]
     public partial class Consent : global::Pulumi.CustomResource
@@ -59,7 +59,7 @@ namespace Community.Pulumi.Osano
         public Output<string?> Jurisdiction { get; private set; } = null!;
 
         /// <summary>
-        /// Timestamp of the last refresh from the Osano API (RFC3339).
+        /// RFC 3339 timestamp of the submission that created this resource.
         /// </summary>
         [Output("lastSynced")]
         public Output<string> LastSynced { get; private set; } = null!;
@@ -121,6 +121,7 @@ namespace Community.Pulumi.Osano
                 AdditionalSecretOutputs =
                 {
                     "sessionToken",
+                    "subject",
                 },
                 ReplaceOnChanges =
                 {
@@ -227,11 +228,21 @@ namespace Community.Pulumi.Osano
             }
         }
 
+        [Input("subject", required: true)]
+        private Input<Inputs.ConsentSubjectArgs>? _subject;
+
         /// <summary>
         /// Subject identifiers used for the consent (verifiedId or anonymousId).
         /// </summary>
-        [Input("subject", required: true)]
-        public Input<Inputs.ConsentSubjectArgs> Subject { get; set; } = null!;
+        public Input<Inputs.ConsentSubjectArgs>? Subject
+        {
+            get => _subject;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _subject = Output.Tuple<Input<Inputs.ConsentSubjectArgs>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         [Input("tags")]
         private InputList<string>? _tags;

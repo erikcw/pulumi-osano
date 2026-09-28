@@ -41,7 +41,7 @@ namespace Community.Pulumi.Osano
         public string ConfigId { get; set; } = null!;
 
         /// <summary>
-        /// The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+        /// The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
         /// </summary>
         [Input("storeType")]
         public string? StoreType { get; set; }
@@ -61,7 +61,7 @@ namespace Community.Pulumi.Osano
         public Input<string> ConfigId { get; set; } = null!;
 
         /// <summary>
-        /// The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+        /// The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
         /// </summary>
         [Input("storeType")]
         public Input<string>? StoreType { get; set; }

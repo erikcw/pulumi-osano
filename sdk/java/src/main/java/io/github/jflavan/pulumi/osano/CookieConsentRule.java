@@ -16,20 +16,20 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `&lt;configId&gt;/&lt;ruleId&gt;`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+ * Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `&lt;configId&gt;/&lt;ruleId&gt;`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano&#39;s value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
  *
  */
 @ResourceType(type="osano:index:CookieConsentRule")
 public class CookieConsentRule extends com.pulumi.resources.CustomResource {
     /**
-     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     @Export(name="classification", refs={String.class}, tree="[0]")
     private Output<String> classification;
 
     /**
-     * @return Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * @return Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     public Output<String> classification() {
@@ -134,28 +134,28 @@ public class CookieConsentRule extends com.pulumi.resources.CustomResource {
         return this.ruleId;
     }
     /**
-     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      *
      */
     @Export(name="ruleType", refs={String.class}, tree="[0]")
     private Output</* @Nullable */ String> ruleType;
 
     /**
-     * @return Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * @return Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      *
      */
     public Output<Optional<String>> ruleType() {
         return Codegen.optional(this.ruleType);
     }
     /**
-     * The storage type category: cookies, scripts, iframes, or localStorage.
+     * The storage type category: cookies, scripts, iframes, localStorage.
      *
      */
     @Export(name="storeType", refs={String.class}, tree="[0]")
     private Output<String> storeType;
 
     /**
-     * @return The storage type category: cookies, scripts, iframes, or localStorage.
+     * @return The storage type category: cookies, scripts, iframes, localStorage.
      *
      */
     public Output<String> storeType() {

@@ -25,7 +25,7 @@ func GetCookieConsentDiscoveries(ctx *pulumi.Context, args *GetCookieConsentDisc
 type GetCookieConsentDiscoveriesArgs struct {
 	// The Osano Cookie Consent config ID whose discoveries are listed.
 	ConfigId string `pulumi:"configId"`
-	// The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+	// The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
 	StoreType *string `pulumi:"storeType"`
 }
 
@@ -46,7 +46,7 @@ func GetCookieConsentDiscoveriesOutput(ctx *pulumi.Context, args GetCookieConsen
 type GetCookieConsentDiscoveriesOutputArgs struct {
 	// The Osano Cookie Consent config ID whose discoveries are listed.
 	ConfigId pulumi.StringInput `pulumi:"configId"`
-	// The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+	// The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
 	StoreType pulumi.StringPtrInput `pulumi:"storeType"`
 }
 

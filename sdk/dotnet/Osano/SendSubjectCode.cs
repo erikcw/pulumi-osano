@@ -34,11 +34,17 @@ namespace Community.Pulumi.Osano
 
     public sealed class SendSubjectCodeArgs : global::Pulumi.InvokeArgs
     {
-        /// <summary>
-        /// Email address to send the code to. Set exactly one of email or phone.
-        /// </summary>
         [Input("email")]
-        public string? Email { get; set; }
+        private string? _email;
+
+        /// <summary>
+        /// Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public string? Email
+        {
+            get => _email;
+            set => _email = value;
+        }
 
         /// <summary>
         /// Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
@@ -46,11 +52,17 @@ namespace Community.Pulumi.Osano
         [Input("hashedSubjectId")]
         public string? HashedSubjectId { get; set; }
 
-        /// <summary>
-        /// Phone number to send the code to by SMS. Set exactly one of email or phone.
-        /// </summary>
         [Input("phone")]
-        public string? Phone { get; set; }
+        private string? _phone;
+
+        /// <summary>
+        /// Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public string? Phone
+        {
+            get => _phone;
+            set => _phone = value;
+        }
 
         public SendSubjectCodeArgs()
         {
@@ -60,11 +72,21 @@ namespace Community.Pulumi.Osano
 
     public sealed class SendSubjectCodeInvokeArgs : global::Pulumi.InvokeArgs
     {
-        /// <summary>
-        /// Email address to send the code to. Set exactly one of email or phone.
-        /// </summary>
         [Input("email")]
-        public Input<string>? Email { get; set; }
+        private Input<string>? _email;
+
+        /// <summary>
+        /// Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public Input<string>? Email
+        {
+            get => _email;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _email = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         /// <summary>
         /// Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
@@ -72,11 +94,21 @@ namespace Community.Pulumi.Osano
         [Input("hashedSubjectId")]
         public Input<string>? HashedSubjectId { get; set; }
 
-        /// <summary>
-        /// Phone number to send the code to by SMS. Set exactly one of email or phone.
-        /// </summary>
         [Input("phone")]
-        public Input<string>? Phone { get; set; }
+        private Input<string>? _phone;
+
+        /// <summary>
+        /// Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
+        /// </summary>
+        public Input<string>? Phone
+        {
+            get => _phone;
+            set
+            {
+                var emptySecret = Output.CreateSecret(0);
+                _phone = Output.Tuple<Input<string>?, int>(value, emptySecret).Apply(t => t.Item1);
+            }
+        }
 
         public SendSubjectCodeInvokeArgs()
         {

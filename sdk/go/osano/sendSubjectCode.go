@@ -23,11 +23,11 @@ func SendSubjectCode(ctx *pulumi.Context, args *SendSubjectCodeArgs, opts ...pul
 }
 
 type SendSubjectCodeArgs struct {
-	// Email address to send the code to. Set exactly one of email or phone.
+	// Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
 	Email *string `pulumi:"email"`
 	// Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
 	HashedSubjectId *string `pulumi:"hashedSubjectId"`
-	// Phone number to send the code to by SMS. Set exactly one of email or phone.
+	// Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
 	Phone *string `pulumi:"phone"`
 }
 
@@ -48,11 +48,11 @@ func SendSubjectCodeOutput(ctx *pulumi.Context, args SendSubjectCodeOutputArgs, 
 }
 
 type SendSubjectCodeOutputArgs struct {
-	// Email address to send the code to. Set exactly one of email or phone.
+	// Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
 	Email pulumi.StringPtrInput `pulumi:"email"`
 	// Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
 	HashedSubjectId pulumi.StringPtrInput `pulumi:"hashedSubjectId"`
-	// Phone number to send the code to by SMS. Set exactly one of email or phone.
+	// Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
 	Phone pulumi.StringPtrInput `pulumi:"phone"`
 }
 

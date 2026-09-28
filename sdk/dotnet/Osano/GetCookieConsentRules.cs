@@ -35,7 +35,7 @@ namespace Community.Pulumi.Osano
     public sealed class GetCookieConsentRulesArgs : global::Pulumi.InvokeArgs
     {
         /// <summary>
-        /// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        /// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         /// </summary>
         [Input("classification")]
         public string? Classification { get; set; }
@@ -47,7 +47,13 @@ namespace Community.Pulumi.Osano
         public string ConfigId { get; set; } = null!;
 
         /// <summary>
-        /// Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+        /// Stop after this many rules. Unset or 0 returns every matching rule.
+        /// </summary>
+        [Input("maxResults")]
+        public int? MaxResults { get; set; }
+
+        /// <summary>
+        /// Only return rules of this storage type: cookies, scripts, iframes, localStorage.
         /// </summary>
         [Input("storeType")]
         public string? StoreType { get; set; }
@@ -61,7 +67,7 @@ namespace Community.Pulumi.Osano
     public sealed class GetCookieConsentRulesInvokeArgs : global::Pulumi.InvokeArgs
     {
         /// <summary>
-        /// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        /// Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         /// </summary>
         [Input("classification")]
         public Input<string>? Classification { get; set; }
@@ -73,7 +79,13 @@ namespace Community.Pulumi.Osano
         public Input<string> ConfigId { get; set; } = null!;
 
         /// <summary>
-        /// Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+        /// Stop after this many rules. Unset or 0 returns every matching rule.
+        /// </summary>
+        [Input("maxResults")]
+        public Input<int>? MaxResults { get; set; }
+
+        /// <summary>
+        /// Only return rules of this storage type: cookies, scripts, iframes, localStorage.
         /// </summary>
         [Input("storeType")]
         public Input<string>? StoreType { get; set; }

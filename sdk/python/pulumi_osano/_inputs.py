@@ -26,6 +26,9 @@ __all__ = [
 ]
 
 class ConsentActionArgsDict(TypedDict):
+    """
+    One consent decision: the subject's action for a privacy protocol within a configuration.
+    """
     action: pulumi.Input[_builtins.str]
     """
     The subject's choice: ACCEPT, REJECT, or UNSELECTED.
@@ -51,6 +54,8 @@ class ConsentActionArgs:
                  vendor: pulumi.Input[_builtins.str],
                  jurisdiction: pulumi.Input[Optional[_builtins.str]] = None):
         """
+        One consent decision: the subject's action for a privacy protocol within a configuration.
+
         :param pulumi.Input[_builtins.str] action: The subject's choice: ACCEPT, REJECT, or UNSELECTED.
         :param pulumi.Input[_builtins.str] target: The privacy protocol ID (the Target ID on the privacy protocol's edit page).
         :param pulumi.Input[_builtins.str] vendor: The Unified Consent configuration ID the consent is recorded for.
@@ -112,6 +117,9 @@ class ConsentActionArgs:
 
 
 class ConsentComplianceArgsDict(TypedDict):
+    """
+    Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+    """
     gpc: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
     1 if the Global Privacy Control signal is enabled, 0 otherwise.
@@ -127,6 +135,8 @@ class ConsentComplianceArgs:
                  gpc: pulumi.Input[Optional[_builtins.int]] = None,
                  privacy_policy: pulumi.Input[Optional['ConsentPrivacyPolicyArgs']] = None):
         """
+        Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
+
         :param pulumi.Input[_builtins.int] gpc: 1 if the Global Privacy Control signal is enabled, 0 otherwise.
         :param pulumi.Input['ConsentPrivacyPolicyArgs'] privacy_policy: The privacy policy in effect when the consent was given.
         """
@@ -161,6 +171,9 @@ class ConsentComplianceArgs:
 
 
 class ConsentPrivacyPolicyArgsDict(TypedDict):
+    """
+    The published privacy policy a consent was given under.
+    """
     url: pulumi.Input[_builtins.str]
     """
     The privacy policy URL.
@@ -176,6 +189,8 @@ class ConsentPrivacyPolicyArgs:
                  url: pulumi.Input[_builtins.str],
                  version: pulumi.Input[Optional[_builtins.str]] = None):
         """
+        The published privacy policy a consent was given under.
+
         :param pulumi.Input[_builtins.str] url: The privacy policy URL.
         :param pulumi.Input[_builtins.str] version: The privacy policy version active when the consent was submitted.
         """
@@ -209,6 +224,9 @@ class ConsentPrivacyPolicyArgs:
 
 
 class ConsentSubjectArgsDict(TypedDict):
+    """
+    The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+    """
     anonymous_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The subject's anonymous ID. Must not contain #, %, or spaces.
@@ -224,6 +242,8 @@ class ConsentSubjectArgs:
                  anonymous_id: pulumi.Input[Optional[_builtins.str]] = None,
                  verified_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
+        The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+
         :param pulumi.Input[_builtins.str] anonymous_id: The subject's anonymous ID. Must not contain #, %, or spaces.
         :param pulumi.Input[_builtins.str] verified_id: The subject's verified ID. Must not contain #, %, or spaces.
         """

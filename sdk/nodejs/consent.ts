@@ -7,7 +7,7 @@ import * as outputs from "./types/output";
 import * as utilities from "./utilities";
 
 /**
- * Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+ * Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
  */
 export class Consent extends pulumi.CustomResource {
     /**
@@ -65,7 +65,7 @@ export class Consent extends pulumi.CustomResource {
      */
     declare public readonly jurisdiction: pulumi.Output<string | undefined>;
     /**
-     * Timestamp of the last refresh from the Osano API (RFC3339).
+     * RFC 3339 timestamp of the submission that created this resource.
      */
     declare public /*out*/ readonly lastSynced: pulumi.Output<string>;
     /**
@@ -111,7 +111,7 @@ export class Consent extends pulumi.CustomResource {
             resourceInputs["origin"] = args?.origin;
             resourceInputs["regionCodeOverride"] = args?.regionCodeOverride;
             resourceInputs["sessionToken"] = args?.sessionToken ? pulumi.secret(args.sessionToken) : undefined;
-            resourceInputs["subject"] = args?.subject;
+            resourceInputs["subject"] = args?.subject ? pulumi.secret(args.subject) : undefined;
             resourceInputs["tags"] = args?.tags;
             resourceInputs["consentId"] = undefined /*out*/;
             resourceInputs["gpcActions"] = undefined /*out*/;
@@ -132,7 +132,7 @@ export class Consent extends pulumi.CustomResource {
             resourceInputs["tags"] = undefined /*out*/;
         }
         opts = pulumi.mergeOptions(utilities.resourceOptsDefaults(), opts);
-        const secretOpts = { additionalSecretOutputs: ["sessionToken"] };
+        const secretOpts = { additionalSecretOutputs: ["sessionToken", "subject"] };
         opts = pulumi.mergeOptions(opts, secretOpts);
         const replaceOnChanges = { replaceOnChanges: ["actions[*]", "attributes.*", "compliance", "countryCodeOverride", "jurisdiction", "origin", "regionCodeOverride", "sessionToken", "subject", "tags[*]"] };
         opts = pulumi.mergeOptions(opts, replaceOnChanges);

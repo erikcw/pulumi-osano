@@ -12,7 +12,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-// Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+// Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
 type Consent struct {
 	pulumi.CustomResourceState
 
@@ -30,7 +30,7 @@ type Consent struct {
 	GpcActions ConsentActionArrayOutput `pulumi:"gpcActions"`
 	// Optional jurisdiction, which must be one of the configuration's jurisdictions (see getCollections).
 	Jurisdiction pulumi.StringPtrOutput `pulumi:"jurisdiction"`
-	// Timestamp of the last refresh from the Osano API (RFC3339).
+	// RFC 3339 timestamp of the submission that created this resource.
 	LastSynced pulumi.StringOutput `pulumi:"lastSynced"`
 	// Origin of the consent: api (default) or gpc. With gpc and no actions, the consent is submitted to Osano's GPC endpoint, which derives the actions.
 	Origin pulumi.StringPtrOutput `pulumi:"origin"`
@@ -57,8 +57,12 @@ func NewConsent(ctx *pulumi.Context,
 	if args.SessionToken != nil {
 		args.SessionToken = pulumi.ToSecret(args.SessionToken).(pulumi.StringPtrInput)
 	}
+	if args.Subject != nil {
+		args.Subject = pulumi.ToSecret(args.Subject).(ConsentSubjectInput)
+	}
 	secrets := pulumi.AdditionalSecretOutputs([]string{
 		"sessionToken",
+		"subject",
 	})
 	opts = append(opts, secrets)
 	replaceOnChanges := pulumi.ReplaceOnChanges([]string{
@@ -275,7 +279,7 @@ func (o ConsentOutput) Jurisdiction() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v *Consent) pulumi.StringPtrOutput { return v.Jurisdiction }).(pulumi.StringPtrOutput)
 }
 
-// Timestamp of the last refresh from the Osano API (RFC3339).
+// RFC 3339 timestamp of the submission that created this resource.
 func (o ConsentOutput) LastSynced() pulumi.StringOutput {
 	return o.ApplyT(func(v *Consent) pulumi.StringOutput { return v.LastSynced }).(pulumi.StringOutput)
 }

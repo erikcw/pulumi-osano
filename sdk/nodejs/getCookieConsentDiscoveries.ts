@@ -23,7 +23,7 @@ export interface GetCookieConsentDiscoveriesArgs {
      */
     configId: string;
     /**
-     * The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+     * The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
      */
     storeType?: string;
 }
@@ -59,7 +59,7 @@ export interface GetCookieConsentDiscoveriesOutputArgs {
      */
     configId: pulumi.Input<string>;
     /**
-     * The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+     * The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
      */
     storeType?: pulumi.Input<string | undefined>;
 }

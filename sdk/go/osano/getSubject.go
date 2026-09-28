@@ -30,15 +30,15 @@ type GetSubjectArgs struct {
 }
 
 type GetSubjectResult struct {
-	// The subject's anonymous ID, if any.
+	// The subject's anonymous ID, if any. Secret, because it identifies a person.
 	AnonymousId string `pulumi:"anonymousId"`
 	// Whether Osano knows the subject. The ID outputs are empty when false.
 	Exists bool `pulumi:"exists"`
-	// The subject's Osano ID.
+	// The subject's Osano ID. Secret, because it identifies a person.
 	SubjectId string `pulumi:"subjectId"`
-	// The subject reference that was resolved.
+	// The subject reference that was resolved. Secret, because it identifies a person.
 	SubjectRef string `pulumi:"subjectRef"`
-	// The subject's verified ID, if the subject is verified.
+	// The subject's verified ID, if the subject is verified. Secret, because it identifies a person.
 	VerifiedId string `pulumi:"verifiedId"`
 }
 
@@ -72,7 +72,7 @@ func (o GetSubjectResultOutput) ToGetSubjectResultOutputWithContext(ctx context.
 	return o
 }
 
-// The subject's anonymous ID, if any.
+// The subject's anonymous ID, if any. Secret, because it identifies a person.
 func (o GetSubjectResultOutput) AnonymousId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSubjectResult) string { return v.AnonymousId }).(pulumi.StringOutput)
 }
@@ -82,17 +82,17 @@ func (o GetSubjectResultOutput) Exists() pulumi.BoolOutput {
 	return o.ApplyT(func(v GetSubjectResult) bool { return v.Exists }).(pulumi.BoolOutput)
 }
 
-// The subject's Osano ID.
+// The subject's Osano ID. Secret, because it identifies a person.
 func (o GetSubjectResultOutput) SubjectId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSubjectResult) string { return v.SubjectId }).(pulumi.StringOutput)
 }
 
-// The subject reference that was resolved.
+// The subject reference that was resolved. Secret, because it identifies a person.
 func (o GetSubjectResultOutput) SubjectRef() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSubjectResult) string { return v.SubjectRef }).(pulumi.StringOutput)
 }
 
-// The subject's verified ID, if the subject is verified.
+// The subject's verified ID, if the subject is verified. Secret, because it identifies a person.
 func (o GetSubjectResultOutput) VerifiedId() pulumi.StringOutput {
 	return o.ApplyT(func(v GetSubjectResult) string { return v.VerifiedId }).(pulumi.StringOutput)
 }

@@ -5,6 +5,7 @@ package io.github.jflavan.pulumi.osano.inputs;
 
 import com.pulumi.core.annotations.Import;
 import com.pulumi.exceptions.MissingRequiredPropertyException;
+import java.lang.Integer;
 import java.lang.String;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,14 +17,14 @@ public final class GetCookieConsentRulesPlainArgs extends com.pulumi.resources.I
     public static final GetCookieConsentRulesPlainArgs Empty = new GetCookieConsentRulesPlainArgs();
 
     /**
-     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     @Import(name="classification")
     private @Nullable String classification;
 
     /**
-     * @return Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * @return Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     public Optional<String> classification() {
@@ -46,14 +47,29 @@ public final class GetCookieConsentRulesPlainArgs extends com.pulumi.resources.I
     }
 
     /**
-     * Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+     * Stop after this many rules. Unset or 0 returns every matching rule.
+     *
+     */
+    @Import(name="maxResults")
+    private @Nullable Integer maxResults;
+
+    /**
+     * @return Stop after this many rules. Unset or 0 returns every matching rule.
+     *
+     */
+    public Optional<Integer> maxResults() {
+        return Optional.ofNullable(this.maxResults);
+    }
+
+    /**
+     * Only return rules of this storage type: cookies, scripts, iframes, localStorage.
      *
      */
     @Import(name="storeType")
     private @Nullable String storeType;
 
     /**
-     * @return Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+     * @return Only return rules of this storage type: cookies, scripts, iframes, localStorage.
      *
      */
     public Optional<String> storeType() {
@@ -65,6 +81,7 @@ public final class GetCookieConsentRulesPlainArgs extends com.pulumi.resources.I
     private GetCookieConsentRulesPlainArgs(GetCookieConsentRulesPlainArgs $) {
         this.classification = $.classification;
         this.configId = $.configId;
+        this.maxResults = $.maxResults;
         this.storeType = $.storeType;
     }
 
@@ -87,7 +104,7 @@ public final class GetCookieConsentRulesPlainArgs extends com.pulumi.resources.I
         }
 
         /**
-         * @param classification Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+         * @param classification Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
          *
          * @return builder
          *
@@ -109,7 +126,18 @@ public final class GetCookieConsentRulesPlainArgs extends com.pulumi.resources.I
         }
 
         /**
-         * @param storeType Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+         * @param maxResults Stop after this many rules. Unset or 0 returns every matching rule.
+         *
+         * @return builder
+         *
+         */
+        public Builder maxResults(@Nullable Integer maxResults) {
+            $.maxResults = maxResults;
+            return this;
+        }
+
+        /**
+         * @param storeType Only return rules of this storage type: cookies, scripts, iframes, localStorage.
          *
          * @return builder
          *

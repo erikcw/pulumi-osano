@@ -28,7 +28,7 @@ export interface GetSubjectArgs {
 
 export interface GetSubjectResult {
     /**
-     * The subject's anonymous ID, if any.
+     * The subject's anonymous ID, if any. Secret, because it identifies a person.
      */
     readonly anonymousId: string;
     /**
@@ -36,15 +36,15 @@ export interface GetSubjectResult {
      */
     readonly exists: boolean;
     /**
-     * The subject's Osano ID.
+     * The subject's Osano ID. Secret, because it identifies a person.
      */
     readonly subjectId: string;
     /**
-     * The subject reference that was resolved.
+     * The subject reference that was resolved. Secret, because it identifies a person.
      */
     readonly subjectRef: string;
     /**
-     * The subject's verified ID, if the subject is verified.
+     * The subject's verified ID, if the subject is verified. Secret, because it identifies a person.
      */
     readonly verifiedId: string;
 }

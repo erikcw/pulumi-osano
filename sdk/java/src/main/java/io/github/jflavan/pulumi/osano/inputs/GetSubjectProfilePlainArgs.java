@@ -14,14 +14,14 @@ public final class GetSubjectProfilePlainArgs extends com.pulumi.resources.Invok
     public static final GetSubjectProfilePlainArgs Empty = new GetSubjectProfilePlainArgs();
 
     /**
-     * The subject ID whose profile is returned.
+     * The subject ID whose profile is returned. Secret, because it identifies a person.
      *
      */
     @Import(name="subjectId", required=true)
     private String subjectId;
 
     /**
-     * @return The subject ID whose profile is returned.
+     * @return The subject ID whose profile is returned. Secret, because it identifies a person.
      *
      */
     public String subjectId() {
@@ -53,7 +53,7 @@ public final class GetSubjectProfilePlainArgs extends com.pulumi.resources.Invok
         }
 
         /**
-         * @param subjectId The subject ID whose profile is returned.
+         * @param subjectId The subject ID whose profile is returned. Secret, because it identifies a person.
          *
          * @return builder
          *

@@ -12,6 +12,10 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 
+/**
+ * The published privacy policy a consent was given under.
+ *
+ */
 public final class ConsentPrivacyPolicyArgs extends com.pulumi.resources.ResourceArgs {
 
     public static final ConsentPrivacyPolicyArgs Empty = new ConsentPrivacyPolicyArgs();

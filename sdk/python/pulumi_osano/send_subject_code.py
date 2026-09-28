@@ -89,9 +89,9 @@ def send_subject_code(email: Optional[_builtins.str] = None,
     """
     Sends a verification code to a subject's email or phone, authenticating with every configured key (the Osano API key, the Unified Consent API key, or both). Pulumi runs invokes on every preview, update, and refresh, so declaring this in a stack sends a new code each time; call it from automation rather than from long-lived stack code.
 
-    :param _builtins.str email: Email address to send the code to. Set exactly one of email or phone.
+    :param _builtins.str email: Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str hashed_subject_id: Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
-    :param _builtins.str phone: Phone number to send the code to by SMS. Set exactly one of email or phone.
+    :param _builtins.str phone: Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
     """
     __args__ = dict()
     __args__['email'] = email
@@ -112,9 +112,9 @@ def send_subject_code_output(email: pulumi.Input[Optional[Optional[_builtins.str
     """
     Sends a verification code to a subject's email or phone, authenticating with every configured key (the Osano API key, the Unified Consent API key, or both). Pulumi runs invokes on every preview, update, and refresh, so declaring this in a stack sends a new code each time; call it from automation rather than from long-lived stack code.
 
-    :param _builtins.str email: Email address to send the code to. Set exactly one of email or phone.
+    :param _builtins.str email: Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str hashed_subject_id: Optional hashed subject identifier, sent only when set. Osano's current API identifies the subject by email or phone.
-    :param _builtins.str phone: Phone number to send the code to by SMS. Set exactly one of email or phone.
+    :param _builtins.str phone: Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
     """
     __args__ = dict()
     __args__['email'] = email

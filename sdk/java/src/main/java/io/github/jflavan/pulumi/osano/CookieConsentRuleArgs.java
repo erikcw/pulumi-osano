@@ -18,14 +18,14 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
     public static final CookieConsentRuleArgs Empty = new CookieConsentRuleArgs();
 
     /**
-     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     @Import(name="classification", required=true)
     private Output<String> classification;
 
     /**
-     * @return Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * @return Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      *
      */
     public Output<String> classification() {
@@ -108,14 +108,14 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
     }
 
     /**
-     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      *
      */
     @Import(name="ruleType")
     private @Nullable Output<String> ruleType;
 
     /**
-     * @return Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+     * @return Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
      *
      */
     public Optional<Output<String>> ruleType() {
@@ -123,14 +123,14 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
     }
 
     /**
-     * The storage type category: cookies, scripts, iframes, or localStorage.
+     * The storage type category: cookies, scripts, iframes, localStorage.
      *
      */
     @Import(name="storeType", required=true)
     private Output<String> storeType;
 
     /**
-     * @return The storage type category: cookies, scripts, iframes, or localStorage.
+     * @return The storage type category: cookies, scripts, iframes, localStorage.
      *
      */
     public Output<String> storeType() {
@@ -201,7 +201,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param classification Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+         * @param classification Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
          *
          * @return builder
          *
@@ -212,7 +212,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param classification Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+         * @param classification Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
          *
          * @return builder
          *
@@ -327,7 +327,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param ruleType Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+         * @param ruleType Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
          *
          * @return builder
          *
@@ -338,7 +338,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param ruleType Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+         * @param ruleType Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
          *
          * @return builder
          *
@@ -348,7 +348,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param storeType The storage type category: cookies, scripts, iframes, or localStorage.
+         * @param storeType The storage type category: cookies, scripts, iframes, localStorage.
          *
          * @return builder
          *
@@ -359,7 +359,7 @@ public final class CookieConsentRuleArgs extends com.pulumi.resources.ResourceAr
         }
 
         /**
-         * @param storeType The storage type category: cookies, scripts, iframes, or localStorage.
+         * @param storeType The storage type category: cookies, scripts, iframes, localStorage.
          *
          * @return builder
          *

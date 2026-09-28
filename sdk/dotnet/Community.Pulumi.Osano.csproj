@@ -9,9 +9,12 @@
     <RepositoryUrl>https://github.com/jflavan/pulumi-osano</RepositoryUrl>
     <PackageIcon>logo.png</PackageIcon>
     <Version>0.1.0-alpha.0+dev</Version>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>pulumi;osano;consent;cookie-consent;privacy;cmp</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

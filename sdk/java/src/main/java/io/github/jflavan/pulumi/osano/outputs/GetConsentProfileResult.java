@@ -29,7 +29,7 @@ public final class GetConsentProfileResult {
      */
     private String hashedSubjectId;
     /**
-     * @return The consent profile Osano returned, with unifiedConsent and conflicts keys.
+     * @return The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject&#39;s consent history, IP address, and user agent.
      *
      */
     private Map<String,Object> profile;
@@ -57,7 +57,7 @@ public final class GetConsentProfileResult {
         return this.hashedSubjectId;
     }
     /**
-     * @return The consent profile Osano returned, with unifiedConsent and conflicts keys.
+     * @return The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject&#39;s consent history, IP address, and user agent.
      *
      */
     public Map<String,Object> profile() {

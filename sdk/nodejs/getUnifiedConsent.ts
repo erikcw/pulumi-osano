@@ -38,7 +38,7 @@ export interface GetUnifiedConsentArgs {
 
 export interface GetUnifiedConsentResult {
     /**
-     * Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+     * Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
      */
     readonly conflicts: {[key: string]: any}[];
     /**
@@ -46,11 +46,11 @@ export interface GetUnifiedConsentResult {
      */
     readonly exists: boolean;
     /**
-     * The subject reference that was looked up.
+     * The subject reference that was looked up. Secret, because it identifies a person.
      */
     readonly subjectRef: string;
     /**
-     * The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+     * The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject's IP address and user agent.
      */
     readonly unifiedConsent: {[key: string]: any};
 }

@@ -50,7 +50,7 @@ export interface GetConsentProfileResult {
      */
     readonly hashedSubjectId: string;
     /**
-     * The consent profile Osano returned, with unifiedConsent and conflicts keys.
+     * The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject's consent history, IP address, and user agent.
      */
     readonly profile: {[key: string]: any};
 }

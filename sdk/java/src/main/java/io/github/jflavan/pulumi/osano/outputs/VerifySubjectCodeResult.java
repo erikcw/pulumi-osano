@@ -34,12 +34,12 @@ public final class VerifySubjectCodeResult {
      */
     private Map<String,Object> profile;
     /**
-     * @return True when Osano accepted the code; a rejected code fails the invoke instead.
+     * @return True when Osano accepted the code. A rejected code fails the invoke, as does a response that reports verified: false.
      *
      */
     private Boolean verified;
     /**
-     * @return The subject&#39;s verified ID returned by Osano.
+     * @return The subject&#39;s verified ID returned by Osano. Secret, because it identifies a person.
      *
      */
     private String verifiedId;
@@ -74,14 +74,14 @@ public final class VerifySubjectCodeResult {
         return this.profile;
     }
     /**
-     * @return True when Osano accepted the code; a rejected code fails the invoke instead.
+     * @return True when Osano accepted the code. A rejected code fails the invoke, as does a response that reports verified: false.
      *
      */
     public Boolean verified() {
         return this.verified;
     }
     /**
-     * @return The subject&#39;s verified ID returned by Osano.
+     * @return The subject&#39;s verified ID returned by Osano. Secret, because it identifies a person.
      *
      */
     public String verifiedId() {

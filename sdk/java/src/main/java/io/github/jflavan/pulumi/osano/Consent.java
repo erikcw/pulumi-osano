@@ -19,7 +19,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
+ * Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any input submits a new consent (replacement), and destroying the resource only removes it from Pulumi state. Refresh confirms that Osano still reports consent for the subject and never removes the resource, so a refresh cannot cause a consent to be submitted again. The resource cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and returns in gpcActions.
  *
  */
 @ResourceType(type="osano:index:Consent")
@@ -123,14 +123,14 @@ public class Consent extends com.pulumi.resources.CustomResource {
         return Codegen.optional(this.jurisdiction);
     }
     /**
-     * Timestamp of the last refresh from the Osano API (RFC3339).
+     * RFC 3339 timestamp of the submission that created this resource.
      *
      */
     @Export(name="lastSynced", refs={String.class}, tree="[0]")
     private Output<String> lastSynced;
 
     /**
-     * @return Timestamp of the last refresh from the Osano API (RFC3339).
+     * @return RFC 3339 timestamp of the submission that created this resource.
      *
      */
     public Output<String> lastSynced() {
@@ -248,7 +248,8 @@ public class Consent extends com.pulumi.resources.CustomResource {
             .version(Utilities.getVersion())
             .pluginDownloadURL("github://api.github.com/jflavan/pulumi-osano")
             .additionalSecretOutputs(List.of(
-                "sessionToken"
+                "sessionToken",
+                "subject"
             ))
             .replaceOnChanges(List.of(
                 "actions[*]",

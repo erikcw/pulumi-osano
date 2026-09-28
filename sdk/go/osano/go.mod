@@ -2,8 +2,6 @@ module github.com/jflavan/pulumi-osano/sdk/go/osano
 
 go 1.26.6
 
-toolchain go1.27.1
-
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/pulumi/pulumi/sdk/v3 v3.264.0

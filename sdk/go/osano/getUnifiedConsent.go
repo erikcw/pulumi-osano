@@ -34,13 +34,13 @@ type GetUnifiedConsentArgs struct {
 }
 
 type GetUnifiedConsentResult struct {
-	// Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+	// Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
 	Conflicts []map[string]interface{} `pulumi:"conflicts"`
 	// Whether Osano has any consent for the subject.
 	Exists bool `pulumi:"exists"`
-	// The subject reference that was looked up.
+	// The subject reference that was looked up. Secret, because it identifies a person.
 	SubjectRef string `pulumi:"subjectRef"`
-	// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+	// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject's IP address and user agent.
 	UnifiedConsent map[string]interface{} `pulumi:"unifiedConsent"`
 }
 
@@ -78,7 +78,7 @@ func (o GetUnifiedConsentResultOutput) ToGetUnifiedConsentResultOutputWithContex
 	return o
 }
 
-// Conflicting consents Osano resolved, with the resolution and the actions in conflict.
+// Conflicting consents Osano resolved, with the resolution and the actions in conflict. Secret, because it is the consent history of a person.
 func (o GetUnifiedConsentResultOutput) Conflicts() pulumi.MapArrayOutput {
 	return o.ApplyT(func(v GetUnifiedConsentResult) []map[string]interface{} { return v.Conflicts }).(pulumi.MapArrayOutput)
 }
@@ -88,12 +88,12 @@ func (o GetUnifiedConsentResultOutput) Exists() pulumi.BoolOutput {
 	return o.ApplyT(func(v GetUnifiedConsentResult) bool { return v.Exists }).(pulumi.BoolOutput)
 }
 
-// The subject reference that was looked up.
+// The subject reference that was looked up. Secret, because it identifies a person.
 func (o GetUnifiedConsentResultOutput) SubjectRef() pulumi.StringOutput {
 	return o.ApplyT(func(v GetUnifiedConsentResult) string { return v.SubjectRef }).(pulumi.StringOutput)
 }
 
-// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags.
+// The merged consent: subjectId, brandId, channelIds, jurisdiction, lastUpdateDate, lastConflictDate, actions, attributes, compliance, and tags. Secret, because the attributes hold the subject's IP address and user agent.
 func (o GetUnifiedConsentResultOutput) UnifiedConsent() pulumi.MapOutput {
 	return o.ApplyT(func(v GetUnifiedConsentResult) map[string]interface{} { return v.UnifiedConsent }).(pulumi.MapOutput)
 }

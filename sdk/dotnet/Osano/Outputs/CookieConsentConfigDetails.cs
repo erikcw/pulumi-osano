@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// A Cookie Consent configuration as Osano reports it, with its install script.
+    /// </summary>
     [OutputType]
     public sealed class CookieConsentConfigDetails
     {

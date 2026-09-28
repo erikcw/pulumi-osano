@@ -13,6 +13,7 @@ import (
 
 var _ = internal.GetEnvOrDefault
 
+// One consent decision: the subject's action for a privacy protocol within a configuration.
 type ConsentAction struct {
 	// The subject's choice: ACCEPT, REJECT, or UNSELECTED.
 	Action string `pulumi:"action"`
@@ -35,6 +36,7 @@ type ConsentActionInput interface {
 	ToConsentActionOutputWithContext(context.Context) ConsentActionOutput
 }
 
+// One consent decision: the subject's action for a privacy protocol within a configuration.
 type ConsentActionArgs struct {
 	// The subject's choice: ACCEPT, REJECT, or UNSELECTED.
 	Action pulumi.StringInput `pulumi:"action"`
@@ -83,6 +85,7 @@ func (i ConsentActionArray) ToConsentActionArrayOutputWithContext(ctx context.Co
 	return pulumi.ToOutputWithContext(ctx, i).(ConsentActionArrayOutput)
 }
 
+// One consent decision: the subject's action for a privacy protocol within a configuration.
 type ConsentActionOutput struct{ *pulumi.OutputState }
 
 func (ConsentActionOutput) ElementType() reflect.Type {
@@ -137,6 +140,7 @@ func (o ConsentActionArrayOutput) Index(i pulumi.IntInput) ConsentActionOutput {
 	}).(ConsentActionOutput)
 }
 
+// Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
 type ConsentCompliance struct {
 	// 1 if the Global Privacy Control signal is enabled, 0 otherwise.
 	Gpc *int `pulumi:"gpc"`
@@ -155,6 +159,7 @@ type ConsentComplianceInput interface {
 	ToConsentComplianceOutputWithContext(context.Context) ConsentComplianceOutput
 }
 
+// Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
 type ConsentComplianceArgs struct {
 	// 1 if the Global Privacy Control signal is enabled, 0 otherwise.
 	Gpc pulumi.IntPtrInput `pulumi:"gpc"`
@@ -215,6 +220,7 @@ func (i *consentCompliancePtrType) ToConsentCompliancePtrOutputWithContext(ctx c
 	return pulumi.ToOutputWithContext(ctx, i).(ConsentCompliancePtrOutput)
 }
 
+// Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.
 type ConsentComplianceOutput struct{ *pulumi.OutputState }
 
 func (ConsentComplianceOutput) ElementType() reflect.Type {
@@ -293,6 +299,7 @@ func (o ConsentCompliancePtrOutput) PrivacyPolicy() ConsentPrivacyPolicyPtrOutpu
 	}).(ConsentPrivacyPolicyPtrOutput)
 }
 
+// The published privacy policy a consent was given under.
 type ConsentPrivacyPolicy struct {
 	// The privacy policy URL.
 	Url string `pulumi:"url"`
@@ -311,6 +318,7 @@ type ConsentPrivacyPolicyInput interface {
 	ToConsentPrivacyPolicyOutputWithContext(context.Context) ConsentPrivacyPolicyOutput
 }
 
+// The published privacy policy a consent was given under.
 type ConsentPrivacyPolicyArgs struct {
 	// The privacy policy URL.
 	Url pulumi.StringInput `pulumi:"url"`
@@ -371,6 +379,7 @@ func (i *consentPrivacyPolicyPtrType) ToConsentPrivacyPolicyPtrOutputWithContext
 	return pulumi.ToOutputWithContext(ctx, i).(ConsentPrivacyPolicyPtrOutput)
 }
 
+// The published privacy policy a consent was given under.
 type ConsentPrivacyPolicyOutput struct{ *pulumi.OutputState }
 
 func (ConsentPrivacyPolicyOutput) ElementType() reflect.Type {
@@ -449,6 +458,7 @@ func (o ConsentPrivacyPolicyPtrOutput) Version() pulumi.StringPtrOutput {
 	}).(pulumi.StringPtrOutput)
 }
 
+// The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
 type ConsentSubject struct {
 	// The subject's anonymous ID. Must not contain #, %, or spaces.
 	AnonymousId *string `pulumi:"anonymousId"`
@@ -467,6 +477,7 @@ type ConsentSubjectInput interface {
 	ToConsentSubjectOutputWithContext(context.Context) ConsentSubjectOutput
 }
 
+// The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
 type ConsentSubjectArgs struct {
 	// The subject's anonymous ID. Must not contain #, %, or spaces.
 	AnonymousId pulumi.StringPtrInput `pulumi:"anonymousId"`
@@ -486,6 +497,7 @@ func (i ConsentSubjectArgs) ToConsentSubjectOutputWithContext(ctx context.Contex
 	return pulumi.ToOutputWithContext(ctx, i).(ConsentSubjectOutput)
 }
 
+// The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
 type ConsentSubjectOutput struct{ *pulumi.OutputState }
 
 func (ConsentSubjectOutput) ElementType() reflect.Type {
@@ -510,6 +522,7 @@ func (o ConsentSubjectOutput) VerifiedId() pulumi.StringPtrOutput {
 	return o.ApplyT(func(v ConsentSubject) *string { return v.VerifiedId }).(pulumi.StringPtrOutput)
 }
 
+// One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.
 type CookieConsentAuditEvent struct {
 	// The email of the user who performed the action, when known.
 	Actor *string `pulumi:"actor"`
@@ -527,6 +540,7 @@ type CookieConsentAuditEvent struct {
 	Timestamp string `pulumi:"timestamp"`
 }
 
+// One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.
 type CookieConsentAuditEventOutput struct{ *pulumi.OutputState }
 
 func (CookieConsentAuditEventOutput) ElementType() reflect.Type {
@@ -596,6 +610,7 @@ func (o CookieConsentAuditEventArrayOutput) Index(i pulumi.IntInput) CookieConse
 	}).(CookieConsentAuditEventOutput)
 }
 
+// A resource an audit log event acted on.
 type CookieConsentAuditResource struct {
 	// Whether this is the event's primary resource.
 	IsPrimary bool `pulumi:"isPrimary"`
@@ -607,6 +622,7 @@ type CookieConsentAuditResource struct {
 	ResourceType string `pulumi:"resourceType"`
 }
 
+// A resource an audit log event acted on.
 type CookieConsentAuditResourceOutput struct{ *pulumi.OutputState }
 
 func (CookieConsentAuditResourceOutput) ElementType() reflect.Type {
@@ -661,6 +677,7 @@ func (o CookieConsentAuditResourceArrayOutput) Index(i pulumi.IntInput) CookieCo
 	}).(CookieConsentAuditResourceOutput)
 }
 
+// A Cookie Consent configuration as Osano reports it, with its install script.
 type CookieConsentConfigDetails struct {
 	// The Osano config ID (UUID).
 	ConfigId string `pulumi:"configId"`
@@ -694,6 +711,7 @@ type CookieConsentConfigDetails struct {
 	Updated int `pulumi:"updated"`
 }
 
+// A Cookie Consent configuration as Osano reports it, with its install script.
 type CookieConsentConfigDetailsOutput struct{ *pulumi.OutputState }
 
 func (CookieConsentConfigDetailsOutput) ElementType() reflect.Type {
@@ -803,6 +821,7 @@ func (o CookieConsentConfigDetailsArrayOutput) Index(i pulumi.IntInput) CookieCo
 	}).(CookieConsentConfigDetailsOutput)
 }
 
+// A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
 type CookieConsentDiscovery struct {
 	// Osano's AI classification confidence (Unknown, Low, Medium, or High). Only reported for cookies.
 	Confidence *string `pulumi:"confidence"`
@@ -820,6 +839,7 @@ type CookieConsentDiscovery struct {
 	Updated string `pulumi:"updated"`
 }
 
+// A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.
 type CookieConsentDiscoveryOutput struct{ *pulumi.OutputState }
 
 func (CookieConsentDiscoveryOutput) ElementType() reflect.Type {
@@ -889,6 +909,7 @@ func (o CookieConsentDiscoveryArrayOutput) Index(i pulumi.IntInput) CookieConsen
 	}).(CookieConsentDiscoveryOutput)
 }
 
+// A classification rule of a Cookie Consent configuration as Osano reports it.
 type CookieConsentRuleDetails struct {
 	// The rule classification.
 	Classification string `pulumi:"classification"`
@@ -920,6 +941,7 @@ type CookieConsentRuleDetails struct {
 	VendorName *string `pulumi:"vendorName"`
 }
 
+// A classification rule of a Cookie Consent configuration as Osano reports it.
 type CookieConsentRuleDetailsOutput struct{ *pulumi.OutputState }
 
 func (CookieConsentRuleDetailsOutput) ElementType() reflect.Type {

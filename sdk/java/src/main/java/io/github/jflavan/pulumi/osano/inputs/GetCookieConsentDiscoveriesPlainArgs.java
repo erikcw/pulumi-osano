@@ -31,14 +31,14 @@ public final class GetCookieConsentDiscoveriesPlainArgs extends com.pulumi.resou
     }
 
     /**
-     * The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+     * The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
      *
      */
     @Import(name="storeType")
     private @Nullable String storeType;
 
     /**
-     * @return The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+     * @return The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
      *
      */
     public Optional<String> storeType() {
@@ -82,7 +82,7 @@ public final class GetCookieConsentDiscoveriesPlainArgs extends com.pulumi.resou
         }
 
         /**
-         * @param storeType The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+         * @param storeType The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
          *
          * @return builder
          *

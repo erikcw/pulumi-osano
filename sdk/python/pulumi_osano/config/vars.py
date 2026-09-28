@@ -23,48 +23,48 @@ class _ExportableConfig(types.ModuleType):
     @_builtins.property
     def api_base_url(self) -> Optional[str]:
         """
-        Base URL for the Osano Unified Consent API. Override only when targeting a custom domain (default https://uc.api.osano.com). OSANO_API_BASE_URL takes precedence when set.
+        Base URL of the Unified Consent API, including any path prefix (default https://uc.api.osano.com). The OSANO_API_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         """
         return __config__.get('apiBaseUrl')
 
     @_builtins.property
     def customer_base_url(self) -> Optional[str]:
         """
-        Override base URL for the Customer REST API (default: https://api.osano.com).
+        Base URL of the Customer REST API (default https://api.osano.com). The OSANO_CUSTOMER_BASE_URL environment variable is used when it is unset. Must use https, except for loopback hosts.
         """
         return __config__.get('customerBaseUrl')
 
     @_builtins.property
     def osano_api_key(self) -> Optional[str]:
         """
-        Osano API key used for subject send-code/verify routes and Customer REST API/CMP operations (set via pulumi config set osano:osanoApiKey --secret, or OSANO_API_KEY, which takes precedence).
+        Osano Customer REST API key, sent as x-osano-api-key by the Cookie Consent resources and functions and by sendSubjectCode and verifySubjectCode. Set it with `pulumi config set osano:osanoApiKey --secret`; the OSANO_API_KEY environment variable is used when it is unset.
         """
         return __config__.get('osanoApiKey')
 
     @_builtins.property
     def request_timeout_seconds(self) -> Optional[int]:
         """
-        HTTP request timeout in seconds for Customer REST API and Unified Consent calls (default 60). OSANO_API_TIMEOUT_SECONDS takes precedence when set to a positive integer.
+        Timeout in seconds for each HTTP request attempt to the Osano APIs, from 1 to 3600 (default 60). Retried requests wait for each attempt separately. The OSANO_API_TIMEOUT_SECONDS environment variable is used when it is unset.
         """
         return __config__.get_int('requestTimeoutSeconds')
 
     @_builtins.property
     def uc_api_key(self) -> Optional[str]:
         """
-        Unified Consent API key for the Unified Consent Core API (x-uc-api-key).
+        Former name of unifiedConsentApiKey, read only when that key is unset.
         """
         return __config__.get('ucApiKey')
 
     @_builtins.property
     def uc_base_url(self) -> Optional[str]:
         """
-        Override base URL for the Unified Consent Core API (default: https://uc.api.osano.com).
+        Former name of apiBaseUrl, read only when apiBaseUrl is unset.
         """
         return __config__.get('ucBaseUrl')
 
     @_builtins.property
     def unified_consent_api_key(self) -> Optional[str]:
         """
-        Unified Consent API key used for consent collection routes (set via pulumi config set osano:unifiedConsentApiKey --secret, or OSANO_UC_API_KEY, which takes precedence).
+        Unified Consent API key, sent as x-uc-api-key by the Consent resource and the Unified Consent functions. Set it with `pulumi config set osano:unifiedConsentApiKey --secret`; the OSANO_UC_API_KEY environment variable is used when it is unset.
         """
         return __config__.get('unifiedConsentApiKey')

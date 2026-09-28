@@ -12,6 +12,10 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 
+/**
+ * One consent decision: the subject&#39;s action for a privacy protocol within a configuration.
+ *
+ */
 public final class ConsentActionArgs extends com.pulumi.resources.ResourceArgs {
 
     public static final ConsentActionArgs Empty = new ConsentActionArgs();

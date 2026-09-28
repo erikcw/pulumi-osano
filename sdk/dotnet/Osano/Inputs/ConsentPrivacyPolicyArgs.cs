@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Inputs
 {
 
+    /// <summary>
+    /// The published privacy policy a consent was given under.
+    /// </summary>
     public sealed class ConsentPrivacyPolicyArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>

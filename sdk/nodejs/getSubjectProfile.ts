@@ -16,7 +16,7 @@ export function getSubjectProfile(args: GetSubjectProfileArgs, opts?: pulumi.Inv
 
 export interface GetSubjectProfileArgs {
     /**
-     * The subject ID whose profile is returned.
+     * The subject ID whose profile is returned. Secret, because it identifies a person.
      */
     subjectId: string;
 }
@@ -35,7 +35,7 @@ export interface GetSubjectProfileResult {
      */
     readonly profile: {[key: string]: any};
     /**
-     * The subject ID that was looked up.
+     * The subject ID that was looked up. Secret, because it identifies a person.
      */
     readonly subjectId: string;
 }
@@ -51,7 +51,7 @@ export function getSubjectProfileOutput(args: GetSubjectProfileOutputArgs, opts?
 
 export interface GetSubjectProfileOutputArgs {
     /**
-     * The subject ID whose profile is returned.
+     * The subject ID whose profile is returned. Secret, because it identifies a person.
      */
     subjectId: pulumi.Input<string>;
 }

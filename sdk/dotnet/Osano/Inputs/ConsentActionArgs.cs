@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Inputs
 {
 
+    /// <summary>
+    /// One consent decision: the subject's action for a privacy protocol within a configuration.
+    /// </summary>
     public sealed class ConsentActionArgs : global::Pulumi.ResourceArgs
     {
         /// <summary>

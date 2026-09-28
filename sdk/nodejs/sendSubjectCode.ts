@@ -19,7 +19,7 @@ export function sendSubjectCode(args?: SendSubjectCodeArgs, opts?: pulumi.Invoke
 
 export interface SendSubjectCodeArgs {
     /**
-     * Email address to send the code to. Set exactly one of email or phone.
+     * Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     email?: string;
     /**
@@ -27,7 +27,7 @@ export interface SendSubjectCodeArgs {
      */
     hashedSubjectId?: string;
     /**
-     * Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      */
     phone?: string;
 }
@@ -65,7 +65,7 @@ export function sendSubjectCodeOutput(args?: SendSubjectCodeOutputArgs, opts?: p
 
 export interface SendSubjectCodeOutputArgs {
     /**
-     * Email address to send the code to. Set exactly one of email or phone.
+     * Email address to send the code to. Set exactly one of email or phone. Secret, because it is personal data.
      */
     email?: pulumi.Input<string | undefined>;
     /**
@@ -73,7 +73,7 @@ export interface SendSubjectCodeOutputArgs {
      */
     hashedSubjectId?: pulumi.Input<string | undefined>;
     /**
-     * Phone number to send the code to by SMS. Set exactly one of email or phone.
+     * Phone number to send the code to by SMS. Set exactly one of email or phone. Secret, because it is personal data.
      */
     phone?: pulumi.Input<string | undefined>;
 }

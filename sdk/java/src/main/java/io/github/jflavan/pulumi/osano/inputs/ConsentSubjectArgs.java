@@ -11,6 +11,10 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 
+/**
+ * The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+ *
+ */
 public final class ConsentSubjectArgs extends com.pulumi.resources.ResourceArgs {
 
     public static final ConsentSubjectArgs Empty = new ConsentSubjectArgs();

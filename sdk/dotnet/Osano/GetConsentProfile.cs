@@ -113,7 +113,7 @@ namespace Community.Pulumi.Osano
         /// </summary>
         public readonly string HashedSubjectId;
         /// <summary>
-        /// The consent profile Osano returned, with unifiedConsent and conflicts keys.
+        /// The consent profile Osano returned, with unifiedConsent and conflicts keys. Secret, because it holds the subject's consent history, IP address, and user agent.
         /// </summary>
         public readonly ImmutableDictionary<string, object> Profile;
 

@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// A resource an audit log event acted on.
+    /// </summary>
     [OutputType]
     public sealed class CookieConsentAuditResource
     {

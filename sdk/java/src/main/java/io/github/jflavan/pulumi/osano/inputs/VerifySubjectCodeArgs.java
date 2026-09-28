@@ -32,14 +32,14 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
     }
 
     /**
-     * Email address the code was sent to. Set exactly one of email or phone.
+     * Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="email")
     private @Nullable Output<String> email;
 
     /**
-     * @return Email address the code was sent to. Set exactly one of email or phone.
+     * @return Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<Output<String>> email() {
@@ -62,14 +62,14 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
     }
 
     /**
-     * Phone number the code was sent to. Set exactly one of email or phone.
+     * Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     @Import(name="phone")
     private @Nullable Output<String> phone;
 
     /**
-     * @return Phone number the code was sent to. Set exactly one of email or phone.
+     * @return Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
      *
      */
     public Optional<Output<String>> phone() {
@@ -141,7 +141,7 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
         }
 
         /**
-         * @param email Email address the code was sent to. Set exactly one of email or phone.
+         * @param email Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -152,7 +152,7 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
         }
 
         /**
-         * @param email Email address the code was sent to. Set exactly one of email or phone.
+         * @param email Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -183,7 +183,7 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
         }
 
         /**
-         * @param phone Phone number the code was sent to. Set exactly one of email or phone.
+         * @param phone Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *
@@ -194,7 +194,7 @@ public final class VerifySubjectCodeArgs extends com.pulumi.resources.InvokeArgs
         }
 
         /**
-         * @param phone Phone number the code was sent to. Set exactly one of email or phone.
+         * @param phone Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
          *
          * @return builder
          *

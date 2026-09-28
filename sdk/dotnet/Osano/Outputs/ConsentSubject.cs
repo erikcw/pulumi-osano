@@ -11,6 +11,9 @@ using Pulumi;
 namespace Community.Pulumi.Osano.Outputs
 {
 
+    /// <summary>
+    /// The subject a consent is recorded for, identified by a verified ID or an anonymous ID.
+    /// </summary>
     [OutputType]
     public sealed class ConsentSubject
     {

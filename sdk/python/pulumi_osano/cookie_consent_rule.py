@@ -32,14 +32,14 @@ class CookieConsentRuleArgs:
         """
         The set of arguments for constructing a CookieConsentRule resource.
 
-        :param pulumi.Input[_builtins.str] classification: Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        :param pulumi.Input[_builtins.str] classification: Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         :param pulumi.Input[_builtins.str] config_id: The configId of the Cookie Consent Configuration this rule belongs to.
         :param pulumi.Input[_builtins.str] rule: The rule pattern (e.g. a cookie name pattern). Min 3, max 1000 characters.
-        :param pulumi.Input[_builtins.str] store_type: The storage type category: cookies, scripts, iframes, or localStorage.
+        :param pulumi.Input[_builtins.str] store_type: The storage type category: cookies, scripts, iframes, localStorage.
         :param pulumi.Input[_builtins.str] description: Optional cookie description. Only supported for cookies; max 1000 characters.
         :param pulumi.Input[_builtins.bool] disclosure: Whether the rule should be disclosed. Defaults to false.
         :param pulumi.Input[_builtins.str] expiry: Optional cookie expiry description. Only supported for cookies; max 50 characters.
-        :param pulumi.Input[_builtins.str] rule_type: Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+        :param pulumi.Input[_builtins.str] rule_type: Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
         :param pulumi.Input[_builtins.str] title: Optional title for the rule, used in consent disclosure. Max 64 characters.
         :param pulumi.Input[_builtins.str] vendor_name: Optional vendor name for the rule. Max 100 characters.
         """
@@ -64,7 +64,7 @@ class CookieConsentRuleArgs:
     @pulumi.getter
     def classification(self) -> pulumi.Input[_builtins.str]:
         """
-        Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         """
         return pulumi.get(self, "classification")
 
@@ -100,7 +100,7 @@ class CookieConsentRuleArgs:
     @pulumi.getter(name="storeType")
     def store_type(self) -> pulumi.Input[_builtins.str]:
         """
-        The storage type category: cookies, scripts, iframes, or localStorage.
+        The storage type category: cookies, scripts, iframes, localStorage.
         """
         return pulumi.get(self, "store_type")
 
@@ -148,7 +148,7 @@ class CookieConsentRuleArgs:
     @pulumi.getter(name="ruleType")
     def rule_type(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+        Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
         """
         return pulumi.get(self, "rule_type")
 
@@ -199,18 +199,18 @@ class CookieConsentRule(pulumi.CustomResource):
                  vendor_name: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
         """
-        Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+        Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano's value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] classification: Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        :param pulumi.Input[_builtins.str] classification: Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         :param pulumi.Input[_builtins.str] config_id: The configId of the Cookie Consent Configuration this rule belongs to.
         :param pulumi.Input[_builtins.str] description: Optional cookie description. Only supported for cookies; max 1000 characters.
         :param pulumi.Input[_builtins.bool] disclosure: Whether the rule should be disclosed. Defaults to false.
         :param pulumi.Input[_builtins.str] expiry: Optional cookie expiry description. Only supported for cookies; max 50 characters.
         :param pulumi.Input[_builtins.str] rule: The rule pattern (e.g. a cookie name pattern). Min 3, max 1000 characters.
-        :param pulumi.Input[_builtins.str] rule_type: Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
-        :param pulumi.Input[_builtins.str] store_type: The storage type category: cookies, scripts, iframes, or localStorage.
+        :param pulumi.Input[_builtins.str] rule_type: Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
+        :param pulumi.Input[_builtins.str] store_type: The storage type category: cookies, scripts, iframes, localStorage.
         :param pulumi.Input[_builtins.str] title: Optional title for the rule, used in consent disclosure. Max 64 characters.
         :param pulumi.Input[_builtins.str] vendor_name: Optional vendor name for the rule. Max 100 characters.
         """
@@ -221,7 +221,7 @@ class CookieConsentRule(pulumi.CustomResource):
                  args: CookieConsentRuleArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano.
+        Manages an Osano Cookie Consent (CMP) rule within a configuration. Import with `<configId>/<ruleId>`. Changing configId or storeType replaces the rule, and deleting this resource deletes the rule in Osano. An optional field the program never sets stays unmanaged: Osano's value is neither read into state nor cleared by an update; removing a field the program did set clears it in Osano.
 
         :param str resource_name: The name of the resource.
         :param CookieConsentRuleArgs args: The arguments to use to populate this resource's properties.
@@ -319,7 +319,7 @@ class CookieConsentRule(pulumi.CustomResource):
     @pulumi.getter
     def classification(self) -> pulumi.Output[_builtins.str]:
         """
-        Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+        Classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
         """
         return pulumi.get(self, "classification")
 
@@ -383,7 +383,7 @@ class CookieConsentRule(pulumi.CustomResource):
     @pulumi.getter(name="ruleType")
     def rule_type(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, or EXACT_MATCH.
+        Optional matching mode: FILENAME, DOMAIN, PATH, REGEXP, STARTS_WITH, ENDS_WITH, CONTAINS, EXACT_MATCH.
         """
         return pulumi.get(self, "rule_type")
 
@@ -391,7 +391,7 @@ class CookieConsentRule(pulumi.CustomResource):
     @pulumi.getter(name="storeType")
     def store_type(self) -> pulumi.Output[_builtins.str]:
         """
-        The storage type category: cookies, scripts, iframes, or localStorage.
+        The storage type category: cookies, scripts, iframes, localStorage.
         """
         return pulumi.get(self, "store_type")
 

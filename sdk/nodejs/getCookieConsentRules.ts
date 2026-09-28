@@ -14,13 +14,14 @@ export function getCookieConsentRules(args: GetCookieConsentRulesArgs, opts?: pu
     return pulumi.runtime.invoke("osano:index:getCookieConsentRules", {
         "classification": args.classification,
         "configId": args.configId,
+        "maxResults": args.maxResults,
         "storeType": args.storeType,
     }, opts);
 }
 
 export interface GetCookieConsentRulesArgs {
     /**
-     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      */
     classification?: string;
     /**
@@ -28,7 +29,11 @@ export interface GetCookieConsentRulesArgs {
      */
     configId: string;
     /**
-     * Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+     * Stop after this many rules. Unset or 0 returns every matching rule.
+     */
+    maxResults?: number;
+    /**
+     * Only return rules of this storage type: cookies, scripts, iframes, localStorage.
      */
     storeType?: string;
 }
@@ -51,13 +56,14 @@ export function getCookieConsentRulesOutput(args: GetCookieConsentRulesOutputArg
     return pulumi.runtime.invokeOutput("osano:index:getCookieConsentRules", {
         "classification": args.classification,
         "configId": args.configId,
+        "maxResults": args.maxResults,
         "storeType": args.storeType,
     }, opts);
 }
 
 export interface GetCookieConsentRulesOutputArgs {
     /**
-     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, or PERSONALIZATION.
+     * Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION.
      */
     classification?: pulumi.Input<string | undefined>;
     /**
@@ -65,7 +71,11 @@ export interface GetCookieConsentRulesOutputArgs {
      */
     configId: pulumi.Input<string>;
     /**
-     * Only return rules of this storage type: cookies, scripts, iframes, or localStorage.
+     * Stop after this many rules. Unset or 0 returns every matching rule.
+     */
+    maxResults?: pulumi.Input<number | undefined>;
+    /**
+     * Only return rules of this storage type: cookies, scripts, iframes, localStorage.
      */
     storeType?: pulumi.Input<string | undefined>;
 }

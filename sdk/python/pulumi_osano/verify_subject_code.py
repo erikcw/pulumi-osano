@@ -79,7 +79,7 @@ class VerifySubjectCodeResult:
     @pulumi.getter
     def verified(self) -> _builtins.bool:
         """
-        True when Osano accepted the code; a rejected code fails the invoke instead.
+        True when Osano accepted the code. A rejected code fails the invoke, as does a response that reports verified: false.
         """
         return pulumi.get(self, "verified")
 
@@ -87,7 +87,7 @@ class VerifySubjectCodeResult:
     @pulumi.getter(name="verifiedId")
     def verified_id(self) -> _builtins.str:
         """
-        The subject's verified ID returned by Osano.
+        The subject's verified ID returned by Osano. Secret, because it identifies a person.
         """
         return pulumi.get(self, "verified_id")
 
@@ -116,9 +116,9 @@ def verify_subject_code(code: Optional[_builtins.str] = None,
     Verifies a subject profile using the code sent via email or SMS. Pulumi runs invokes on every preview, update, and refresh, and one-time codes cannot be reused, so call this from automation rather than from long-lived stack code.
 
     :param _builtins.str code: The one-time verification code the subject received (6 characters by email, 8 by SMS).
-    :param _builtins.str email: Email address the code was sent to. Set exactly one of email or phone.
+    :param _builtins.str email: Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str hashed_subject_id: Optional hashed subject identifier, sent only when set.
-    :param _builtins.str phone: Phone number the code was sent to. Set exactly one of email or phone.
+    :param _builtins.str phone: Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str session: The SMS challenge session. Required with phone; not used with email.
     """
     __args__ = dict()
@@ -147,9 +147,9 @@ def verify_subject_code_output(code: pulumi.Input[Optional[_builtins.str]] = Non
     Verifies a subject profile using the code sent via email or SMS. Pulumi runs invokes on every preview, update, and refresh, and one-time codes cannot be reused, so call this from automation rather than from long-lived stack code.
 
     :param _builtins.str code: The one-time verification code the subject received (6 characters by email, 8 by SMS).
-    :param _builtins.str email: Email address the code was sent to. Set exactly one of email or phone.
+    :param _builtins.str email: Email address the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str hashed_subject_id: Optional hashed subject identifier, sent only when set.
-    :param _builtins.str phone: Phone number the code was sent to. Set exactly one of email or phone.
+    :param _builtins.str phone: Phone number the code was sent to. Set exactly one of email or phone. Secret, because it is personal data.
     :param _builtins.str session: The SMS challenge session. Required with phone; not used with email.
     """
     __args__ = dict()

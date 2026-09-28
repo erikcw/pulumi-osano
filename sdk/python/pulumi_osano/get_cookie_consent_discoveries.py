@@ -78,7 +78,7 @@ def get_cookie_consent_discoveries(config_id: Optional[_builtins.str] = None,
     Lists the cookies, scripts, iframes, or localStorage keys that osano.js or URL scans discovered for a configuration. Use it to review what still needs a rule before switching a configuration to production mode, which blocks everything unclassified.
 
     :param _builtins.str config_id: The Osano Cookie Consent config ID whose discoveries are listed.
-    :param _builtins.str store_type: The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+    :param _builtins.str store_type: The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
     """
     __args__ = dict()
     __args__['configId'] = config_id
@@ -97,7 +97,7 @@ def get_cookie_consent_discoveries_output(config_id: pulumi.Input[Optional[_buil
     Lists the cookies, scripts, iframes, or localStorage keys that osano.js or URL scans discovered for a configuration. Use it to review what still needs a rule before switching a configuration to production mode, which blocks everything unclassified.
 
     :param _builtins.str config_id: The Osano Cookie Consent config ID whose discoveries are listed.
-    :param _builtins.str store_type: The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.
+    :param _builtins.str store_type: The storage type to list: cookies (the default, as in the Osano API), scripts, iframes, localStorage.
     """
     __args__ = dict()
     __args__['configId'] = config_id

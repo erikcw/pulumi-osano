@@ -29,7 +29,7 @@ public final class GetSubjectProfileResult {
      */
     private Map<String,Object> profile;
     /**
-     * @return The subject ID that was looked up.
+     * @return The subject ID that was looked up. Secret, because it identifies a person.
      *
      */
     private String subjectId;
@@ -57,7 +57,7 @@ public final class GetSubjectProfileResult {
         return this.profile;
     }
     /**
-     * @return The subject ID that was looked up.
+     * @return The subject ID that was looked up. Secret, because it identifies a person.
      *
      */
     public String subjectId() {
