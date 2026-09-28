@@ -8,6 +8,133 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Until 1.0
 
 ## [Unreleased]
 
+This release comes out of a production-readiness review of the provider, its CI, and its
+documentation. It contains breaking changes; upgrade notes:
+[docs/UPGRADE.md](docs/UPGRADE.md#upgrading-from-02x-to-030).
+
+### Changed
+
+- **Stack configuration takes precedence over environment variables.** `osano:osanoApiKey`,
+  `osano:unifiedConsentApiKey`, `osano:apiBaseUrl`, `osano:customerBaseUrl`, and
+  `osano:requestTimeoutSeconds` now win over `OSANO_API_KEY`, `OSANO_UC_API_KEY`,
+  `OSANO_API_BASE_URL`, `OSANO_CUSTOMER_BASE_URL`, and `OSANO_API_TIMEOUT_SECONDS`; an environment
+  variable is used only when its configuration key is unset. Previously a set environment variable
+  silently overrode the stack, so an exported key could point a stack at another Osano account.
+  When both are set and differ, the provider warns that the stack configuration is used.
+- **Base URLs must use `https`.** `apiBaseUrl` and `customerBaseUrl`, and their environment
+  variables, are validated when the provider is configured, before any request: they must be
+  absolute URLs, and `http` is accepted only for loopback hosts (`localhost`, `127.0.0.1`, `::1`),
+  as used by local mocks. API keys travel in request headers, so a plain-`http` URL to any other
+  host would send them in clear text. The HTTP client also no longer follows redirects, so a key is
+  never re-sent to a host the response chose.
+- **`requestTimeoutSeconds` must be from 1 to 3600** and applies to each request attempt. A
+  configuration value above 3600 fails; an `OSANO_API_TIMEOUT_SECONDS` value that is not a whole
+  number in that range is ignored with a warning, and the default of 60 is used.
+- **The same retry policy applies to both Osano APIs**, which now share one HTTP client. GET
+  requests, including every Unified Consent lookup and the `Consent` refresh, are retried after a
+  dropped connection and after `429` or `5xx` responses; PATCH and DELETE requests after `429` or
+  `5xx`; POST requests only after `429`, because Osano documents no idempotency keys, so a `5xx`
+  may already have been processed. The publish request is the exception and is retried after `5xx`
+  too, because Osano answers a duplicate publish with `409`, which the provider joins. Up to three
+  retries, honoring `Retry-After` (capped at one minute) and otherwise doubling from one second. In
+  0.2.x, Unified Consent requests were never retried and creates were retried after `503`.
+- **`Consent` refresh never removes the resource.** When Osano reports no consent for the subject,
+  `pulumi refresh` keeps the resource and its `lastSynced` value and warns, so a refresh can never
+  cause a consent to be submitted again. In 0.2.x the resource was dropped from state and the next
+  `pulumi up` submitted it again. `lastSynced` is the submission timestamp. `pulumi import` of a
+  `Consent` fails with an explicit error instead of importing an empty resource: Osano exposes only
+  the merged consent of a subject, not individual submissions.
+- **`Consent` compares inputs by value.** Every changed input still replaces the resource, which
+  submits a new consent, but a change in secretness alone (see the next item) or an absent list or
+  map against an empty one is not a change.
+- **Subject identifiers and personal data are secrets.** Pulumi now encrypts these in state and
+  masks them in output: `Consent.subject`; `subjectRef` (input and output), `unifiedConsent`, and
+  `conflicts` of `getUnifiedConsent`; `subjectRef`, `subjectId`, `verifiedId`, and `anonymousId` of
+  `getSubject`; `subjectId` of `checkConsent` and `getSubjectProfile`; `getConsentProfile.profile`;
+  `getSession.verifiedId`; `verifySubjectCode.verifiedId`; and the `email` and `phone` inputs of
+  `sendSubjectCode` and `verifySubjectCode`. Values that were already secret stay secret; the
+  schema is the complete list. A stack output built from one of these values is now shown as
+  `[secret]`; `pulumi stack output --show-secrets` reveals it.
+- **Previews show inputs, not placeholders.** A `pulumi preview` that creates a `Consent` no longer
+  shows a made-up `consentId`; the ID and `consentId` stay unknown until `pulumi up`. A preview that
+  creates a `CookieConsentPublication` shows the configuration ID instead of `preview`. Previews of
+  new Cookie Consent configs and rules show their inputs, and server-assigned values stay unknown.
+- **Error messages.** API errors read `osano api error: status=<code> body=<body>` (was
+  `status <code>`), with the body cut at 2 KiB. A request that gets no response reports the method
+  and host only (`Osano API request failed: GET https://api.osano.com: ...`), never the path or
+  query, which can hold a session ID. Error responses to `sendSubjectCode` and `verifySubjectCode`
+  withhold the body, which can echo the subject's email address or phone number. A response body
+  over 8 MiB is rejected, and a list that pages more than 1000 times fails instead of looping.
+- `countryCodeOverride` and `regionCodeOverride` are sent upper-case (`us-ca` is sent as `US-CA`).
+- `getSubject` trims `subjectRef`; `verifySubjectCode` fails when Osano answers `200` with
+  `verified: false`; and `referenceType: anonymous` logs a deprecation warning (it is still sent as
+  `subject`).
+- The provider validates its configuration when Pulumi configures it, so an invalid base URL or
+  timeout and the deprecated `ucApiKey` and `ucBaseUrl` keys are reported once per run, before any
+  resource operation, instead of at the first request that needs them.
+- `CookieConsentRule` resource IDs must be `<configId>/<ruleId>`; the numeric-only form of
+  pre-release builds is no longer read.
+- Schema: the nested types (`ConsentAction`, `ConsentSubject`, `ConsentCompliance`,
+  `ConsentPrivacyPolicy`, and the Cookie Consent result types) have descriptions, and the provider
+  configuration descriptions state the precedence and validation rules.
+- .NET: `Community.Pulumi.Osano` targets `net8.0` (was `net6.0`, which is out of support), has
+  package tags, and ships its XML documentation. It requires .NET 8 or later as before, and
+  `tests/dotnet` still compiles the example on .NET 8 and .NET 10.
+- Go: the SDK module no longer pins a Go `toolchain`, so `go get` does not download Go 1.27.1 into
+  a program that builds with any supported Go version (1.26.6 or later).
+
+### Added
+
+- `OSANO_CUSTOMER_BASE_URL` sets `customerBaseUrl`, as `OSANO_API_BASE_URL` does for `apiBaseUrl`.
+- `getCookieConsentRules.maxResults` stops after that many rules; unset or `0` returns every match.
+- A lost `CookieConsentConfig` create is adopted instead of duplicated: when the create request
+  fails with a `5xx` response or no response, the provider lists the configurations with the
+  requested name, and if exactly one has that name and those domains and was created at or after
+  the request, it becomes the resource, with a warning. Otherwise the create fails as before, and
+  the troubleshooting guide explains how to import a duplicate, since Osano cannot delete
+  configurations.
+- Supply chain and CI: every third-party GitHub Action is pinned to a commit SHA, with Dependabot
+  updates for Actions, Go modules, npm, NuGet, pip, and the devcontainer; the NuGet package of each
+  release has a GitHub build provenance attestation (`gh attestation verify <package>.nupkg --owner
+  jflavan`), like the plugin archives; a release publishes only after a new `verify` job (lint, e2e
+  compilation, script tests, and the engine-level pipeline suite) passes; CodeQL also analyzes the
+  C# and Java SDKs and examples; workflows check out without persisted credentials, and test jobs
+  run without a `GITHUB_TOKEN`; the pipeline suite also runs on every push to `main`; and the
+  Claude workflows run only when the `CLAUDE_ENABLED` repository variable is `true`.
+- Make targets: `make vulncheck` runs `govulncheck`, `make lint_fix` applies lint fixes (`make lint`
+  no longer rewrites files), `RACE=` runs the tests on a toolchain without cgo, and `make test_all`
+  runs everything including the pipeline suite.
+
+### Fixed
+
+- `CookieConsentRule` updates no longer clear fields the program never set. An update sends the
+  fields the program sets now or set before; an optional field (`title`, `vendorName`, `ruleType`,
+  and for cookies `description` and `expiry`) the program has never set is omitted, so Osano's
+  default or a value set in the dashboard stays as it is, matching create and refresh. Removing a
+  field the program did set still clears it. In 0.2.x every optional field the program did not set
+  was sent as `null` on each update.
+- A `CookieConsentConfig.configuration` key the program stops declaring is now cleared in Osano:
+  the update sends `null` for it, at any depth except inside the atomic objects such as
+  `variantMapping`. Previously the key kept its value in Osano, and refresh showed no drift because
+  it compares only declared keys.
+- `CookieConsentPublication` waits for the deadline behind a stale error. When a configuration
+  keeps reporting the previous publication's `error` after a new publish request was accepted, the
+  provider keeps polling until the resource's `customTimeouts` (or the 20-minute default) and warns
+  once, after about 25 seconds, that it is waiting for Osano to start the new publication. 0.2.x
+  failed at that point with `Osano did not start a new publication`. A fresh `error` still fails
+  immediately.
+- A `CookieConsentConfig` or `CookieConsentPublication` whose Osano response has no `configId` now
+  fails the read instead of being reported as deleted, which would have made the next update create
+  an undeletable duplicate.
+
+### Removed
+
+- The opt-in live e2e suites no longer call Osano through their own HTTP client
+  (`tests/e2e/internal/api`); they run the provider's functions and the `Consent` resource, so they
+  test what users run.
+- The `comment-on-stale-issues` workflow and the `ci-mgmt` configuration; the workflows are
+  maintained by hand.
+
 ## [0.2.1] - 2026-09-25
 
 ### Changed

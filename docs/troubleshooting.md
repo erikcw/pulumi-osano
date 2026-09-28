@@ -21,14 +21,36 @@ pulumi config set osano:osanoApiKey --secret
 export OSANO_API_KEY="replace-with-a-customer-rest-api-key"
 ```
 
-When both are present, `OSANO_API_KEY` takes precedence. Confirm the key belongs
-to the same customer/environment as the target config. See the
+When both are present, the stack configuration is used, and the provider warns
+that `OSANO_API_KEY` is set but ignored. Confirm the key belongs to the same
+customer/environment as the target config. See the
 [Customer REST API](https://developers.osano.com/customer-rest-api).
 
 `sendSubjectCode` and `verifySubjectCode` send every configured key, because
 Osano's guide and its OpenAPI spec name different keys for these routes; either
 key is enough. With neither set they fail with `no Osano API key configured; set osano:osanoApiKey or
 OSANO_API_KEY (or osano:unifiedConsentApiKey or OSANO_UC_API_KEY)`.
+
+## Provider configuration rejected
+
+The provider validates its configuration when Pulumi configures it, before any
+request, so these errors appear at the start of `pulumi preview` or `pulumi up`:
+
+- `invalid apiBaseUrl "...": must be an absolute http(s) URL` (or
+  `customerBaseUrl`): the value, or its environment variable
+  (`OSANO_API_BASE_URL`, `OSANO_CUSTOMER_BASE_URL`), is not a URL with a scheme
+  and host.
+- `API keys are only sent over https (http is accepted for loopback hosts)`:
+  the base URL uses plain `http` for a host other than `localhost`,
+  `127.0.0.1`, or `::1`. Use an `https` endpoint, or a loopback tunnel for a
+  local proxy.
+- `requestTimeoutSeconds must be at most 3600`: lower the value. It applies to
+  each request attempt. An `OSANO_API_TIMEOUT_SECONDS` value that is not a
+  whole number from 1 to 3600 does not fail; it is ignored with a warning and
+  the default of 60 seconds is used.
+- A warning such as `OSANO_API_KEY is set but osano:osanoApiKey is configured;
+  the stack configuration is used` means the stack and the environment disagree.
+  Remove one of them so the intent is clear.
 
 ## Provider plugin not found or not downloaded
 
@@ -177,10 +199,11 @@ publish-relevant desired state (and therefore `changeToken`) and run one new
 Osano does not provide them). It contains neither the config ID nor the API key.
 
 If the configuration was already in `error` before the publish request, Osano
-may keep reporting that same `error` until it starts the new operation. The
-provider fails on the sixth unchanged poll (about 25 seconds of backoff plus
-request time) with `Osano did not start a new publication`, rather than waiting
-for the full publication timeout.
+keeps reporting that same `error` until it starts the new operation, which can
+wait behind its publication queue. The provider keeps polling until the
+publication timeout and warns once, after about 25 seconds, that it is
+`waiting for Osano to start the new publication`. If the timeout is reached,
+check the configuration in Osano before running `pulumi up` again.
 
 ### Publication timeout or cancellation
 
@@ -261,11 +284,17 @@ release, and by visitor location.
 
 ## Cookie Consent create failed with a server error
 
-Config and rule creates are not retried after `500`, `502`, or `504`, because
-Osano may already have created the resource before the error was returned.
-Osano has no delete endpoint for configurations, so a blind retry could leave a
-permanent duplicate. `429` and `503` are still retried because they mean the
+Config and rule creates are not retried after a `5xx` response or a lost
+response, because Osano may already have created the resource before the error
+was returned. Osano has no delete endpoint for configurations, so a blind retry
+could leave a permanent duplicate. `429` is still retried, because it means the
 request was not processed.
+
+For a `CookieConsentConfig`, the provider then lists the configurations with
+the requested name. If exactly one has that name and those domains and was
+created at or after the request, the provider adopts it into state, warns, and
+`pulumi up` continues. When none or several match, the create fails with the
+original error (`osano api error: status=503 ...`).
 
 Before re-running `pulumi up`, check Osano for a configuration or rule matching
 your inputs (`getCookieConsentConfigs` and `getCookieConsentRules` list them).
@@ -307,6 +336,21 @@ rejected, so those lookups returned `exists: false` and a refresh removed
 (case-sensitive) and an `origin` other than `api` or `gpc`. `actions` is
 required unless `origin` is `gpc`.
 
+### `osano:index:Consent cannot be imported`
+
+`pulumi import osano:index:Consent` fails with this error. Osano exposes only the
+merged consent of a subject, not the individual submissions a `Consent`
+resource represents, so there is nothing to import. Submit a new consent with
+the resource instead; see [IMPORTING.md](IMPORTING.md#unified-consent-records).
+
+### `Osano reports no consent for the subject`
+
+This warning appears during `pulumi refresh` (or `pulumi up --refresh`) when
+Osano no longer reports consent for the subject of a `Consent` resource. The
+resource is kept, so nothing is submitted again. Check the subject with
+`getUnifiedConsent`. To submit a new consent, change an input, which replaces
+the resource; to stop tracking it, remove it from the program.
+
 ### `session is required to verify an SMS code`
 
 Osano requires the SMS challenge session to verify a code sent by SMS. Pass the
@@ -330,6 +374,18 @@ and [`Consent` validation failures](#consent-validation-failures).
 Verify the route uses the correct key type, the key has not expired, and it
 matches the production/sandbox environment. Rotate it with encrypted Pulumi
 config and apply once.
+
+### `5xx` responses and dropped connections
+
+An error is reported as `osano api error: status=<code> body=<body>` (the body
+is cut at 2 KiB), or as `Osano API request failed: GET https://api.osano.com:
+...` when no response arrived. Reads, including every `get*` function and
+`pulumi refresh`, are retried up to three times after a dropped connection or
+a `429` or `5xx` response; updates and deletes after `429` or `5xx`; creates
+and the subject verification functions only after `429` (see
+[create failed with a server error](#cookie-consent-create-failed-with-a-server-error)).
+A failure that survives the retries usually means an Osano incident; wait and
+run `pulumi up` again.
 
 ## Debug strategy
 

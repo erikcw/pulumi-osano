@@ -17,8 +17,9 @@ the page `<head>`. Sections 2 to 8 follow that pipeline.
 | `sendSubjectCode`, `verifySubjectCode` | Every configured key; either one is enough | Either of the above |
 | `Consent` resource and the other Unified Consent functions | Unified Consent API key (`x-uc-api-key`) | `osano:unifiedConsentApiKey` (secret) or `OSANO_UC_API_KEY` |
 
-Environment variables take precedence over stack config. Store config values
-with `--secret`:
+Stack configuration takes precedence over the environment variables, which are
+used only when the stack does not configure the key. Store config values with
+`--secret`:
 
 ```bash
 pulumi config set osano:osanoApiKey --secret
@@ -286,9 +287,12 @@ location.
 3. `pulumi up` applies the edits, then republishes exactly once.
 4. Running `pulumi up` again with no edits is a no-op and does not publish.
 
-Changing `configId` or a rule's `storeType` replaces that resource. Changing the
-publication's `keepUnclassifiedTattles`, `description`, or `webhookUrl` also
-republishes. `keepUnclassifiedTattles` defaults to `true` so publication does not
+Changing `configId` or a rule's `storeType` replaces that resource. A rule
+update sends only the fields the program sets or has set before, so a value set
+in the Osano dashboard for a field the program never set stays as it is;
+removing a field the program did set clears it. Removing a `configuration` key
+from the config clears it in Osano too. Changing the publication's
+`keepUnclassifiedTattles`, `description`, or `webhookUrl` also republishes. `keepUnclassifiedTattles` defaults to `true` so publication does not
 delete unclassified discoveries. Changing provider configuration, such as
 rotating the API key or adding `osano:requestTimeoutSeconds`, updates the
 provider in place and never replaces the Cookie Consent resources. Upgrading
@@ -364,8 +368,9 @@ const consent = new osano.Consent("example", {
 - For a Global Privacy Control consent, set `origin: "gpc"` and omit
   `actions`. Osano derives the actions and the resource exports them as
   `gpcActions`.
-- `sessionToken` (a secret) carries the token returned when the subject's
-  profile was created.
+- `subject` is a secret in state and outputs, as are the subject identifiers
+  and profiles the Unified Consent functions return. `sessionToken` (a secret)
+  carries the token returned when the subject's profile was created.
 - Every `Consent` input replaces the resource when it changes, which submits a
   new consent record.
 
@@ -380,18 +385,18 @@ export const hasConsent = unified.exists;
 `session` for a session ID. `anonymous` is a deprecated alias of `subject`, and
 any other value fails the call. `getSubjectProfile` and `getSession` resolve a
 subject ID or session ID to profile data; their personal-data outputs are
-secrets. Osano serves the Unified Consent API only from
-`https://uc.api.osano.com` and routes regional processing internally.
+secrets. Osano documents the Unified Consent API at
+`https://uc.api.osano.com` only.
 
 Behavior to plan for:
 
 - Consent records are immutable. Destroy only forgets the Pulumi resource, and
   records cannot be imported.
-- `pulumi refresh` looks the subject up by its `verifiedId` or `anonymousId`,
-  confirms it still has consent, and updates `lastSynced`; it keeps your
-  inputs, so a refresh never forces a new submission. If Osano reports no
-  consent for the subject, the resource drops from state and the next
-  `pulumi up` submits it again.
+- `pulumi refresh` looks the subject up by its `verifiedId` or `anonymousId`
+  and confirms it still has consent; it keeps your inputs and `lastSynced` (the
+  submission time), so a refresh never forces a new submission. If Osano
+  reports no consent for the subject, refresh warns and keeps the resource;
+  change an input to submit a new consent deliberately.
 - Pulumi runs functions on every preview, update, and refresh. That is fine for
   the `get*` and `checkConsent` lookups, but `sendSubjectCode` would send a new
   code each run and `verifySubjectCode` would reuse a one-time code. Run
@@ -404,22 +409,23 @@ Behavior to plan for:
 ## 13. Contributor loop
 
 ```bash
-eval "$(mise activate zsh)" && mise install   # pinned toolchain
+eval "$(mise activate zsh)" && mise install   # pinned toolchain (.config/mise.toml)
 make codegen                # after any provider/ change: schema + all SDKs
-make lint
-make test_provider          # mocked HTTP, no credentials
+make lint                   # golangci-lint; make lint_fix applies the fixable findings
+make test_provider          # mocked HTTP, no credentials (RACE= without cgo)
 make build_examples         # C#/TypeScript Cookie Consent + Go quickstart
 make test_e2e_compile       # vets every e2e suite without credentials
 make test_pipeline_e2e      # real pulumi up/refresh/destroy against a mock Osano API
+make test_all               # tests, e2e compilation, script tests, and the pipeline suite
 ```
 
 To exercise a change against Osano, install the local plugin (section 1), then
 run an example with `pulumi preview` and, only when you intend to create real
 resources, `pulumi up`.
 
-The opt-in live suites under [tests/e2e](../tests/e2e) call Osano's Unified
-Consent and subject-verification APIs directly (not through the provider) to
-confirm the upstream contract the provider relies on. The engine-level pipeline
+The opt-in live suites under [tests/e2e](../tests/e2e) run the provider's
+Unified Consent functions and the `Consent` resource against Osano, so they
+check what users run. The engine-level pipeline
 suite (`make test_pipeline_e2e`) builds the provider and runs a Pulumi YAML
 program with real `pulumi up`, `refresh`, and `destroy` against a mock Osano
 API; it needs the Pulumi CLI but no credentials. See
@@ -432,16 +438,19 @@ deployment above.
 | Symptom | Where to look |
 | --- | --- |
 | `Osano API key not configured` / `Unified Consent API key not configured` / `no Osano API key configured` | [troubleshooting](troubleshooting.md#missing-customer-rest-api-key) |
+| `invalid apiBaseUrl`, `API keys are only sent over https`, `requestTimeoutSeconds must be at most 3600`, or a warning that an `OSANO_*` variable is ignored | [troubleshooting](troubleshooting.md#provider-configuration-rejected) |
 | Preview fails with `configuration.<key> ...`, or warns about configuration keys | [troubleshooting](troubleshooting.md#configuration-check-failures-and-warnings) |
 | `pulumi up --refresh` reports drift or updates the configuration on every run | [troubleshooting](troubleshooting.md#drift-or-an-update-on-every-refresh) |
 | Preview shows provider changes after an SDK upgrade | [troubleshooting](troubleshooting.md#provider-changes-after-upgrading-the-sdk) |
 | Publication `409`, `429`, `error`, or timeout | [troubleshooting](troubleshooting.md#publication-status-and-http-responses) |
-| Create failed with `500`/`502`/`504` | [troubleshooting](troubleshooting.md#cookie-consent-create-failed-with-a-server-error) |
+| Create failed with a `5xx` response or no response | [troubleshooting](troubleshooting.md#cookie-consent-create-failed-with-a-server-error) |
 | Script URL returns `403` | [troubleshooting](troubleshooting.md#script-url-returns-403) |
 | Visitors still see the old revision | [troubleshooting](troubleshooting.md#delayed-cdn-propagation-after-published) |
 | Browser blocks `osano.js` or its requests | [troubleshooting](troubleshooting.md#content-security-policy-blocks-osano) |
 | `referenceType must be subject or session` | [troubleshooting](troubleshooting.md#referencetype-must-be-subject-or-session) |
 | `getUnifiedConsent` returns `exists: false` for a subject with consent | [troubleshooting](troubleshooting.md#lookups-return-exists-false) |
+| `osano:index:Consent cannot be imported` | [troubleshooting](troubleshooting.md#osanoindexconsent-cannot-be-imported) |
+| `Osano reports no consent for the subject` warning on refresh | [troubleshooting](troubleshooting.md#osano-reports-no-consent-for-the-subject) |
 | `session is required to verify an SMS code` | [troubleshooting](troubleshooting.md#session-is-required-to-verify-an-sms-code) |
 | Plugin `osano` not found, `404 HTTP error fetching plugin`, or GitHub rate limit | [troubleshooting](troubleshooting.md#provider-plugin-not-found-or-not-downloaded) (from a clone: section 1 of this guide) |
 | Verbose request logging | [logging](logging.md) |

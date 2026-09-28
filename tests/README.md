@@ -10,17 +10,22 @@ make test_provider
 
 They use mocked HTTP and need no credentials. Besides each resource's lifecycle, they cover every
 function, the `CookieConsentConfig` configuration checks and refresh convergence
-(`cookie_consent_configuration_test.go`, `cookie_consent_convergence_test.go`), the provider version
-diff, and contract tests against Osano's Unified Consent OpenAPI spec
-(`unified_consent_contract_test.go`). `schema_test.go` fails when a resource, function, input, or
-output has no description.
+(`cookie_consent_configuration_test.go`, `cookie_consent_convergence_test.go`), API error handling,
+pagination caps, and lost-create adoption (`cookie_consent_api_errors_test.go`), the shared HTTP
+client's retry, redirect, size, and redaction rules (`internal/osano/client_test.go`),
+configuration precedence and validation (`config_resolve_test.go`), the provider version diff, the
+rule that a newly secret input never diffs against plain state (`secret_inputs_diff_test.go`), and
+contract tests against Osano's Unified Consent OpenAPI spec (`unified_consent_contract_test.go`).
+`schema_test.go` fails when a resource, function, input, or output has no description or when a
+personal-data property is not secret. `main_test.go` shortens the retry backoff for the whole
+package.
 
 Whenever you modify code inside `provider/`, remember to run `make codegen` afterwards so the schema
 and SDKs stay in sync.
 
 ## .NET version compatibility
 
-The .NET SDK package targets `net6.0`, which NuGet resolves for every later framework.
+The .NET SDK package targets `net8.0`.
 [tests/dotnet/SdkCompatibility.csproj](dotnet/SdkCompatibility.csproj) compiles the cookie-consent C#
 example against the SDK once per supported .NET version (currently `net8.0` and `net10.0`), so a change
 that drops support for one of them fails CI. `make build_examples` builds it; to run it alone:
@@ -46,11 +51,12 @@ credentials for:
 - Engine-level pipeline: `-tags "e2e pipeline"` (no credentials; see
   [Engine-level pipeline suite](#engine-level-pipeline-suite))
 
-The first three suites call Osano's Unified Consent and subject-verification APIs directly through
-`tests/e2e/internal/api`; they do not run the provider binary. They confirm the upstream contract the
-provider relies on. The full Pulumi workflow (configuration, rules, publication, script outputs) is
-covered by mocked provider tests, by the engine-level pipeline suite, and by the opt-in example
-deployment described in the [end-to-end workflow guide](../docs/end-to-end-workflow.md).
+The first three suites run the provider in-process: `provider_test.go` starts it with the
+framework's integration server, configures it from the `OSANO_*` variables, and calls its functions
+and the `Consent` resource against Osano, so they test what users run. The full Pulumi workflow
+(configuration, rules, publication, script outputs) is covered by mocked provider tests, by the
+engine-level pipeline suite, and by the opt-in example deployment described in the
+[end-to-end workflow guide](../docs/end-to-end-workflow.md).
 
 In addition to the build tag, each suite checks for an opt-in flag before it runs:
 
@@ -98,14 +104,14 @@ Test location: [tests/e2e/subject_verification_test.go](e2e/subject_verification
 
 Required environment:
 
-1. API keys: `OSANO_UC_API_KEY` and `OSANO_API_KEY`
+1. API key: `OSANO_UC_API_KEY` (the provider sends `OSANO_API_KEY` too when it is set)
 2. Delivery channel: `OSANO_VERIFICATION_CHANNEL` ("email" or "sms") and the matching contact:
    `OSANO_VERIFICATION_EMAIL` or `OSANO_VERIFICATION_PHONE`
 3. Optional: `OSANO_HASHED_SUBJECT_ID`, sent only when set (Osano identifies the subject by email or
    phone)
 4. SMS only: the challenge session Osano requires to verify an SMS code. The test takes it from
-   `OSANO_VERIFICATION_SESSION` when set, otherwise from the send-code response (`session` or
-   `sessionId`), and fails when neither has one
+   `OSANO_VERIFICATION_SESSION` when set, otherwise from the `session` output of
+   `sendSubjectCode`, and fails when neither has one
 5. Optional: `OSANO_VERIFICATION_CODE` if you already know the code (otherwise the test prompts)
 6. Opt-in: `OSANO_RUN_SUBJECT_E2E=1`
 

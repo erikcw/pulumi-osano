@@ -197,7 +197,7 @@ const consent = new osano.Consent("example", {
 export const consentId = consent.consentId;
 ```
 
-Run `pulumi up` to submit the consent. Destroying the stack removes the logical Pulumi resource but does **not** delete historical events from Osano (they are immutable).
+Run `pulumi up` to submit the consent. The subject is stored as a secret. Every `Consent` input replaces the resource when it changes, which submits a new consent; `pulumi refresh` never resubmits one. Destroying the stack removes the logical Pulumi resource but does **not** delete historical events from Osano (they are immutable).
 
 Look anonymous and verified IDs up with the default `referenceType` (`subject`); `session` resolves a session ID. To submit a Global Privacy Control consent, set `origin: "gpc"` and omit `actions`: Osano derives the actions and the resource exports them as `gpcActions`. When a pipeline submits consents on a subject's behalf, set `countryCodeOverride` (and `regionCodeOverride`) so Osano does not geolocate the CI runner. The runnable version of this program is in [examples/quickstart](https://github.com/jflavan/pulumi-osano/tree/main/examples/quickstart).
 
@@ -214,10 +214,10 @@ Configure them with Pulumi config:
 
 ```bash
 pulumi config set osano:unifiedConsentApiKey --secret
-pulumi config set osano:osanoApiKey --secret   # required for Cookie Consent and subject verification
+pulumi config set osano:osanoApiKey --secret   # Cookie Consent; also accepted for subject verification
 ```
 
-Or set environment variables for CI:
+Or set environment variables for CI. An environment variable is used only when the stack does not configure the key:
 
 ```bash
 export OSANO_UC_API_KEY="..."
@@ -226,17 +226,17 @@ export OSANO_API_KEY="..."
 
 ## Configuration
 
-Provider-level settings (all optional unless noted):
+Provider-level settings (all optional). Stack configuration takes precedence over the environment variables, which are used only when the key is unset; the provider warns when both are set and differ:
 
 | Key | Description |
 | --- | --- |
-| `osano:unifiedConsentApiKey` | Unified Consent API key (secret); `OSANO_UC_API_KEY` takes precedence when set |
-| `osano:osanoApiKey` | Customer REST API key for Cookie Consent and subject verification (secret); `OSANO_API_KEY` takes precedence when set |
-| `osano:apiBaseUrl` | Override the Unified Consent API base URL, including any path prefix; defaults to `https://uc.api.osano.com`; `OSANO_API_BASE_URL` takes precedence when set |
-| `osano:customerBaseUrl` | Override the Customer REST API base URL; defaults to `https://api.osano.com` |
-| `osano:requestTimeoutSeconds` | HTTP timeout for Customer REST and Unified Consent calls, default 60 seconds; `OSANO_API_TIMEOUT_SECONDS` takes precedence when valid |
+| `osano:unifiedConsentApiKey` | Unified Consent API key (secret); `OSANO_UC_API_KEY` is used when it is unset |
+| `osano:osanoApiKey` | Customer REST API key (secret) for Cookie Consent, also accepted by subject verification; `OSANO_API_KEY` is used when it is unset |
+| `osano:apiBaseUrl` | Base URL of the Unified Consent API, including any path prefix; defaults to `https://uc.api.osano.com`; `OSANO_API_BASE_URL` is used when it is unset. Must use `https` (`http` only for loopback hosts) |
+| `osano:customerBaseUrl` | Base URL of the Customer REST API; defaults to `https://api.osano.com`; `OSANO_CUSTOMER_BASE_URL` is used when it is unset. Must use `https` (`http` only for loopback hosts) |
+| `osano:requestTimeoutSeconds` | Timeout for each request attempt, 1 to 3600 seconds, default 60; `OSANO_API_TIMEOUT_SECONDS` is used when it is unset |
 
-The deprecated `osano:ucApiKey` and `osano:ucBaseUrl` keys are still read as fallbacks for `unifiedConsentApiKey` and `apiBaseUrl`.
+The deprecated `osano:ucApiKey` and `osano:ucBaseUrl` keys are still read when `unifiedConsentApiKey` and `apiBaseUrl` are unset.
 
 Resource-level inputs are documented in the generated SDKs, for example the [Go package reference](https://pkg.go.dev/github.com/jflavan/pulumi-osano/sdk/go/osano).
 
@@ -253,7 +253,7 @@ These repo-local examples contain `Pulumi.yaml` plus language-specific dependenc
 
 1. Install toolchain dependencies: `eval "$(mise activate zsh)" && mise install`
 2. Build the provider: `make provider`
-3. Run tests: `make test_provider`
+3. Run tests and lint: `make test_provider` and `make lint` (`make test_all` runs every suite)
 4. Regenerate schema + SDKs after editing Go code: `make codegen`
 
 For the full lifecycle (install, deploy, day-2 changes, import, teardown, and the contributor loop) see the [end-to-end workflow guide](https://github.com/jflavan/pulumi-osano/blob/main/docs/end-to-end-workflow.md). For releases, see the [release guide](https://github.com/jflavan/pulumi-osano/blob/main/docs/RELEASE_GUIDE.md) and [package publishing](https://github.com/jflavan/pulumi-osano/blob/main/docs/PUBLISHING.md). See [CONTRIBUTING.md](https://github.com/jflavan/pulumi-osano/blob/main/CONTRIBUTING.md) and the [docs](https://github.com/jflavan/pulumi-osano/tree/main/docs) for troubleshooting tips and workflows.

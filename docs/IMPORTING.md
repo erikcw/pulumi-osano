@@ -40,11 +40,11 @@ pulumi import osano:index:CookieConsentPublication publication <configId>
 ```
 
 A configuration import reads the remote configuration into state. It does not
-publish. A rule import requires the composite `<configId>/<ruleId>` identity,
+publish. A rule import requires the composite `<configId>/<ruleId>` identity
 and reconstructs `storeType` from Osano's rule type (`cookie` becomes `cookies`,
-`script` becomes `scripts`, `iframe` becomes `iframes`);
-older tracked rules with numeric IDs remain readable, and refresh normalizes
-their identity without replacing the upstream rule.
+`script` becomes `scripts`, `iframe` becomes `iframes`). Optional rule fields
+that the program does not declare stay unmanaged: they are not read into state,
+and later updates leave them as they are in Osano.
 
 A publication import also performs only a read and never queues publication.
 Because Osano cannot reconstruct the caller's prior desired-state token, the
@@ -75,7 +75,10 @@ after it has been recorded inside Osano.
 
 - `osano:index:Consent` represents a single API submission. Osano does not
   expose identifiers for individual consent actions that map back to Pulumi,
-  so these immutable records are not importable.
+  so these immutable records are not importable: `pulumi import
+  osano:index:Consent ...` fails with `osano:index:Consent cannot be imported:
+  Osano exposes only the merged consent of a subject, not individual
+  submissions`.
 - Adopt Pulumi by submitting new desired consent events. Historical records
   remain untouched and queryable in Osano.
 - Use `osano:index:getUnifiedConsent` to read the latest view for a subject and

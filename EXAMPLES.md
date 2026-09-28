@@ -102,7 +102,7 @@ Repeat for each language offered.
 | `examples/quickstart` | TypeScript, Python, Go | Demonstrates the `osano:index:Consent` resource |
 | `examples/cookie-consent` | C# (canonical), TypeScript | Creates configuration and rules, publishes with `CookieConsentPublication`, and exports `scriptSrc`/`scriptTag` using an explicit `changeToken` |
 
-Invokes (`getUnifiedConsent`, `getSubject`, `getConfig`, `getCollections`, `getCollection`, `checkConsent`, `getConsentProfile`, `sendSubjectCode`, `verifySubjectCode`) do not have dedicated examples yet; their inputs are documented in the generated SDKs.
+Functions (invokes) do not have dedicated examples yet. The [end-to-end workflow guide](docs/end-to-end-workflow.md) shows `getCookieConsentConfig`, `getCookieConsentDiscoveries`, `getCookieConsentAuditLog`, and `getUnifiedConsent` in context, and every function's inputs and outputs are documented in the generated SDKs.
 
 Add new rows as additional resources or workflows are introduced.
 
@@ -119,7 +119,7 @@ Add new rows as additional resources or workflows are introduced.
 ## Troubleshooting
 
 - Use `pulumi config` for stack-scoped data (API keys, subject IDs, etc.).
-- When referencing local SDK builds during development, point the example at the local SDK (`file:../../../sdk/nodejs/bin` for Node.js, a `replace` directive for Go, a `ProjectReference` for .NET, or an editable `-e ../../../sdk/python` requirement for Python) and install the locally built provider plugin with `pulumi plugin install resource osano 0.1.0-alpha.0+dev --file ./bin/pulumi-resource-osano --exact --reinstall`. A Go example that uses a `replace` directive requests the plugin version from its `go.mod` requirement (`0.0.0` in the quickstart), so install the same binary as `0.0.0` too. Commands run through `make` export `PULUMI_IGNORE_AMBIENT_PLUGINS`, so they ignore a `pulumi-resource-osano` binary on `PATH`; install the plugin rather than relying on `PATH`.
+- When referencing local SDK builds during development, point the example at the local SDK (`file:../../../sdk/nodejs/bin` for Node.js, a `replace` directive for Go, a `ProjectReference` for .NET, or an editable `-e ../../../sdk/python` requirement for Python) and install the locally built provider plugin with `pulumi plugin install resource osano 0.1.0-alpha.0+dev --file ./bin/pulumi-resource-osano --exact --reinstall`. The Go SDK embeds its version, so the Go quickstart requests that same plugin version through its `replace` directive. Commands run through `make` export `PULUMI_IGNORE_AMBIENT_PLUGINS`, so they ignore a `pulumi-resource-osano` binary on `PATH`; install the plugin rather than relying on `PATH`.
 - If an example requires multiple resources, prefer separate files over large monoliths so users can quickly see the relevant snippet.
 
 ## Questions?
