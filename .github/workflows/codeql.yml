@@ -51,6 +51,10 @@ jobs:
             build-mode: none
           - language: python # scripts/, sdk/python and the Python example
             build-mode: none
+          - language: csharp # the C# example, tests/dotnet and sdk/dotnet, analyzed without a build
+            build-mode: none
+          - language: java-kotlin # sdk/java, analyzed without a build
+            build-mode: none
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

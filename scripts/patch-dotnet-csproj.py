@@ -13,6 +13,14 @@ METADATA = {
     "Company": "Community Maintained",
     "PackageLicenseExpression": "MIT",
     "PackageReadmeFile": "README.md",
+    "PackageTags": "pulumi;osano;consent;cookie-consent;privacy;cmp",
+    # The generator targets net6.0, which is out of support; the package requires .NET 8 or later, as
+    # the docs state and tests/dotnet/SdkCompatibility.csproj checks.
+    "TargetFramework": "net8.0",
+    # The generator enables the XML documentation file only for Debug builds; ship it in Release too.
+    "GenerateDocumentationFile": "true",
+    # The generated Args and Result classes have no XML comments; CS1591 would report each one.
+    "NoWarn": "$(NoWarn);CS1591",
 }
 
 

@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # Runs only when the repository variable CLAUDE_ENABLED is true (and the OAuth token secret exists).
+    if: vars.CLAUDE_ENABLED == 'true'
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||

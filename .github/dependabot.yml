@@ -11,3 +11,49 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # The provider binary's Go dependencies (pulumi-go-provider, the Pulumi SDK, and their transitive
+  # modules such as google.golang.org/grpc and golang.org/x/*) and the Go example. sdk/go/osano is
+  # generated from the root go.mod by `make codegen`, so it is not updated separately: after merging
+  # a root go.mod update, run `make codegen` and commit the regenerated Go SDK.
+  - package-ecosystem: gomod
+    directories:
+      - /
+      - /examples/quickstart/go
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+
+  # The hand-written example and compatibility projects. The generated sdk/ packages are not
+  # updated by Dependabot; their dependency floors come from the Pulumi code generator.
+  - package-ecosystem: npm
+    directories:
+      - /examples/cookie-consent/typescript
+      - /examples/quickstart/typescript
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns:
+          - "*"
+  - package-ecosystem: nuget
+    directories:
+      - /examples/cookie-consent/csharp
+      - /tests/dotnet
+    schedule:
+      interval: weekly
+    groups:
+      nuget:
+        patterns:
+          - "*"
+  - package-ecosystem: pip
+    directory: /examples/quickstart/python
+    schedule:
+      interval: weekly
+  - package-ecosystem: devcontainers
+    directory: /
+    schedule:
+      interval: weekly
