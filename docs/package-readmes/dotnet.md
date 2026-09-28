@@ -34,7 +34,7 @@ dotnet add package Community.Pulumi.Osano
 The package declares its provider plugin, and Pulumi downloads the matching `pulumi-resource-osano` release from GitHub the first time you run `pulumi preview` or `pulumi up`. To install it manually, pin the version and point Pulumi at the GitHub releases:
 
 ```bash
-pulumi plugin install resource osano 0.2.1 --server github://api.github.com/jflavan/pulumi-osano
+pulumi plugin install resource osano 0.3.0 --server github://api.github.com/jflavan/pulumi-osano
 ```
 
 [Package publishing](https://github.com/jflavan/pulumi-osano/blob/main/docs/PUBLISHING.md) describes how each release is built and how to verify its provenance.

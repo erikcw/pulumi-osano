@@ -36,7 +36,7 @@ have created anyway and adopts it when exactly one matches; otherwise see
 ### Secrets
 
 - `Consent.subject` and the subject identifiers and personal data returned by the Unified Consent
-  functions are secrets; the [changelog](../CHANGELOG.md#unreleased) lists them. Stack outputs
+  functions are secrets; the [changelog](../CHANGELOG.md#030---2026-09-28) lists them. Stack outputs
   built from them show as `[secret]`; use `pulumi stack output --show-secrets` to read them.
 - Existing `Consent` resources show no diff. The resource compares inputs by value, so the SDK now
   sending `subject` as a secret is not a change, and nothing is submitted again. The value is
@@ -280,11 +280,11 @@ pinned SDK version.
 
 | Language | Exact pin |
 | --- | --- |
-| Node.js | `npm install --save-exact @jflavan/pulumi-osano@0.2.1` (`package.json`) |
-| Python | `pulumi-osano==0.2.1` in `requirements.txt` |
-| Go | `go get github.com/jflavan/pulumi-osano/sdk/go/osano@v0.2.1` (`go.mod`) |
-| .NET | `<PackageReference Include="Community.Pulumi.Osano" Version="0.2.1" />` in the `.csproj` |
-| Java | `io.github.jflavan.pulumi:pulumi-osano:0.2.1` in `pom.xml` or `build.gradle` |
+| Node.js | `npm install --save-exact @jflavan/pulumi-osano@0.3.0` (`package.json`) |
+| Python | `pulumi-osano==0.3.0` in `requirements.txt` |
+| Go | `go get github.com/jflavan/pulumi-osano/sdk/go/osano@v0.3.0` (`go.mod`) |
+| .NET | `<PackageReference Include="Community.Pulumi.Osano" Version="0.3.0" />` in the `.csproj` |
+| Java | `io.github.jflavan.pulumi:pulumi-osano:0.3.0` in `pom.xml` or `build.gradle` |
 
 - Fields may be renamed as Osano expands the API. Review the release notes for
   each version and update your Pulumi code accordingly.

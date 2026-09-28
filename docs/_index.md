@@ -43,7 +43,7 @@ dotnet add package Community.Pulumi.Osano
 {{% /choosable %}}
 {{% choosable language java %}}
 
-Replace `VERSION` with the [latest release](https://github.com/jflavan/pulumi-osano/releases) (for example `0.2.1`).
+Replace `VERSION` with the [latest release](https://github.com/jflavan/pulumi-osano/releases) (for example `0.3.0`).
 
 Maven:
 
@@ -64,7 +64,7 @@ implementation("io.github.jflavan.pulumi:pulumi-osano:VERSION")
 {{% /choosable %}}
 {{% choosable language yaml %}}
 
-Pulumi YAML programs use the provider plugin directly. Install the release you want to use (for example `0.2.1`; see [releases](https://github.com/jflavan/pulumi-osano/releases)), then reference the resource types (for example `osano:index:CookieConsentConfig`) in your program:
+Pulumi YAML programs use the provider plugin directly. Install the release you want to use (for example `0.3.0`; see [releases](https://github.com/jflavan/pulumi-osano/releases)), then reference the resource types (for example `osano:index:CookieConsentConfig`) in your program:
 
 ```bash
 pulumi plugin install resource osano VERSION --server github://api.github.com/jflavan/pulumi-osano

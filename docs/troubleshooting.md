@@ -73,7 +73,7 @@ matching `pulumi-resource-osano` archive from the
   same version as the SDK:
 
   ```bash
-  pulumi plugin install resource osano 0.2.1 --server github://api.github.com/jflavan/pulumi-osano
+  pulumi plugin install resource osano 0.3.0 --server github://api.github.com/jflavan/pulumi-osano
   ```
 
 To verify a downloaded archive's checksum and build provenance, see

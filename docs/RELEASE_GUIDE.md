@@ -264,8 +264,8 @@ The registry reads everything from the latest release tag, including `docs/_inde
 - `vX.Y.Z` is a published GitHub release, not a draft or prerelease, and the plugin installs with the
   command above.
 
-The registry publishes the pages of the latest release, so the listing shows what `v0.2.1`
-documents until the next release is published.
+The registry publishes the pages of the latest release, so the listing shows what the latest
+release documents.
 
 Then:
 

@@ -62,12 +62,12 @@ To use the example outside this clone, copy the `csharp` directory and replace
 its local `<ProjectReference>` with the released package reference:
 
 ```xml
-<PackageReference Include="Community.Pulumi.Osano" Version="0.2.1" />
+<PackageReference Include="Community.Pulumi.Osano" Version="0.3.0" />
 ```
 
 Or, in the copied directory, run
 `dotnet remove reference ../../../sdk/dotnet/Community.Pulumi.Osano.csproj`
-and then `dotnet add package Community.Pulumi.Osano --version 0.2.1`.
+and then `dotnet add package Community.Pulumi.Osano --version 0.3.0`.
 
 Keep the existing Pulumi package reference, then run `dotnet restore` and
 `dotnet build`, followed by `pulumi stack init dev`. In this released-package
@@ -98,7 +98,7 @@ directory, delete its `yarn.lock` (it pins the local SDK), and install the
 released package, which replaces the `file:` dependency in `package.json`:
 
 ```bash
-npm install @jflavan/pulumi-osano@0.2.1
+npm install @jflavan/pulumi-osano@0.3.0
 pulumi stack init dev
 ```
 
