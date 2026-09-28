@@ -3,18 +3,15 @@ package provider
 import (
 	"fmt"
 
-	provVersion "github.com/jflavan/pulumi-osano/provider/version"
-
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+
+	provVersion "github.com/jflavan/pulumi-osano/provider/version"
 )
 
 // Version is exported so the gRPC server can announce the plugin version to Pulumi.
 var Version = provVersion.Version
-
-// providerVersion is used inside HTTP clients to build user-agent strings.
-var providerVersion = provVersion.Version
 
 // Name controls the namespace used by all resources in this provider.
 const Name = "osano"
@@ -52,7 +49,7 @@ func Provider() p.Provider {
 			infer.Resource(&CookieConsentConfig{}),
 			infer.Resource(&CookieConsentRule{}),
 			infer.Resource(&CookieConsentPublication{}),
-			infer.Resource(&ConsentResource{}),
+			infer.Resource(&Consent{}),
 		).
 		WithFunctions(
 			infer.Function(&GetCookieConsentConfig{}),

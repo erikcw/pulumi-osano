@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -10,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
-
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
 
 const (
@@ -21,9 +20,10 @@ const (
 	defaultPublicationMaxInterval     = 10 * time.Second
 	defaultPublicationTimeout         = 20 * time.Minute
 
-	// A config already in "error" may report the same error until Osano starts the new publication.
-	// Give up after this many unchanged polls rather than waiting for the full timeout.
-	maxStaleErrorPolls = 6
+	// A config already in "error" keeps reporting that error until Osano starts the new publication,
+	// which can wait behind the publication queue. After this many unchanged polls the wait is
+	// reported once as a warning; only the deadline ends it.
+	staleErrorWarningPolls = 6
 )
 
 // CookieConsentPublication publishes an Osano Cookie Consent configuration and exposes its install script.
@@ -121,10 +121,8 @@ func (r *CookieConsentPublication) Check(
 	if propertyKnown("changeToken") && args.ChangeToken == "" {
 		failures = append(failures, p.CheckFailure{Property: "changeToken", Reason: "changeToken is required"})
 	}
-	if args.KeepUnclassifiedTattles == nil {
-		keep := true
-		args.KeepUnclassifiedTattles = &keep
-	}
+	keep := keepUnclassifiedTattles(args.KeepUnclassifiedTattles)
+	args.KeepUnclassifiedTattles = &keep
 	if propertyKnown("webhookUrl") && args.WebhookURL != nil && !validPublicationWebhookURL(*args.WebhookURL) {
 		failures = append(failures, p.CheckFailure{
 			Property: "webhookUrl",
@@ -140,17 +138,18 @@ func (r *CookieConsentPublication) Create(
 	ctx context.Context, req infer.CreateRequest[CookieConsentPublicationArgs],
 ) (infer.CreateResponse[CookieConsentPublicationState], error) {
 	if req.DryRun {
+		// The publication's ID is the config ID, which is known unless the config is being created.
 		return infer.CreateResponse[CookieConsentPublicationState]{
-			ID:     "preview",
+			ID:     req.Inputs.ConfigID,
 			Output: CookieConsentPublicationState{CookieConsentPublicationArgs: req.Inputs},
 		}, nil
 	}
 
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.CreateResponse[CookieConsentPublicationState]{}, err
 	}
-	state, err := publishCookieConsent(ctx, client, req.Inputs, defaultPublicationPollOptions())
+	state, err := publishCookieConsent(ctx, client, req.Inputs, defaultPublicationPollOptions(ctx))
 	if err != nil {
 		return infer.CreateResponse[CookieConsentPublicationState]{}, err
 	}
@@ -162,7 +161,7 @@ func (r *CookieConsentPublication) Read(
 	ctx context.Context,
 	req infer.ReadRequest[CookieConsentPublicationArgs, CookieConsentPublicationState],
 ) (infer.ReadResponse[CookieConsentPublicationArgs, CookieConsentPublicationState], error) {
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.ReadResponse[CookieConsentPublicationArgs, CookieConsentPublicationState]{}, err
 	}
@@ -176,14 +175,14 @@ func (r *CookieConsentPublication) Read(
 		return infer.ReadResponse[CookieConsentPublicationArgs, CookieConsentPublicationState]{},
 			fmt.Errorf("read Cookie Consent publication %q: %w", req.ID, err)
 	}
+	if current.ConfigID == "" {
+		return infer.ReadResponse[CookieConsentPublicationArgs, CookieConsentPublicationState]{},
+			fmt.Errorf("read Cookie Consent publication %q: Osano's response has no configId", req.ID)
+	}
 
 	args := req.Inputs
 	if args.ChangeToken == "" {
 		args.ChangeToken = fmt.Sprintf("import:%d:%d", current.LastPublished, current.PublishedRevision)
-	}
-	if args.KeepUnclassifiedTattles == nil {
-		keep := true
-		args.KeepUnclassifiedTattles = &keep
 	}
 	args.ConfigID = current.ConfigID
 
@@ -210,11 +209,11 @@ func (r *CookieConsentPublication) Update(
 		return infer.UpdateResponse[CookieConsentPublicationState]{Output: preview}, nil
 	}
 
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.UpdateResponse[CookieConsentPublicationState]{}, err
 	}
-	state, err := publishCookieConsent(ctx, client, req.Inputs, defaultPublicationPollOptions())
+	state, err := publishCookieConsent(ctx, client, req.Inputs, defaultPublicationPollOptions(ctx))
 	if err != nil {
 		return infer.UpdateResponse[CookieConsentPublicationState]{}, err
 	}
@@ -277,15 +276,24 @@ type publicationPollOptions struct {
 	MaxInterval     time.Duration
 	Timeout         time.Duration
 	Sleep           func(context.Context, time.Duration) error
+	// Warn reports a condition worth telling the user about while the wait continues.
+	Warn func(string)
 }
 
-func defaultPublicationPollOptions() publicationPollOptions {
+func defaultPublicationPollOptions(ctx context.Context) publicationPollOptions {
 	return publicationPollOptions{
 		InitialInterval: defaultPublicationInitialInterval,
 		MaxInterval:     defaultPublicationMaxInterval,
 		Timeout:         defaultPublicationTimeout,
 		Sleep:           sleepForPublication,
+		Warn:            func(message string) { p.GetLogger(ctx).Warning(message) },
 	}
+}
+
+// keepUnclassifiedTattles returns the effective value of the optional input, whose default is
+// true so that a publication never deletes unclassified discoveries unless asked to.
+func keepUnclassifiedTattles(value *bool) bool {
+	return value == nil || *value
 }
 
 func publishCookieConsent(
@@ -299,10 +307,6 @@ func publishCookieConsent(
 	}
 	if strings.TrimSpace(args.ChangeToken) == "" {
 		return CookieConsentPublicationState{}, errors.New("changeToken is required to publish Cookie Consent")
-	}
-	if args.KeepUnclassifiedTattles == nil {
-		keep := true
-		args.KeepUnclassifiedTattles = &keep
 	}
 	opts = normalizePublicationPollOptions(opts)
 	ctx, cancel := withPublicationTimeout(ctx, opts.Timeout)
@@ -329,7 +333,7 @@ func publishCookieConsent(
 		PublishedRevision: baselineResponse.PublishedRevision,
 	}
 
-	body := map[string]any{"keepUnclassifiedTattles": *args.KeepUnclassifiedTattles}
+	body := map[string]any{"keepUnclassifiedTattles": keepUnclassifiedTattles(args.KeepUnclassifiedTattles)}
 	if args.Description != nil {
 		body["description"] = *args.Description
 	}
@@ -386,12 +390,15 @@ func publishCookieConsent(
 			if freshError {
 				return CookieConsentPublicationState{}, publicationStatusError(current)
 			}
+			// The previous publication's error is still reported: Osano has not started the new one,
+			// which can wait behind its publication queue. Keep polling until the deadline, and say so once.
 			staleErrorPolls++
-			if staleErrorPolls >= maxStaleErrorPolls {
-				return CookieConsentPublicationState{}, fmt.Errorf(
-					"Osano did not start a new publication after %d polls: %w",
-					staleErrorPolls, publicationStatusError(current),
-				)
+			if staleErrorPolls == staleErrorWarningPolls {
+				opts.Warn(fmt.Sprintf(
+					"Cookie Consent config %s still reports its previous publication error "+
+						"(lastPublished=%d publishedRevision=%d); waiting for Osano to start the new publication",
+					args.ConfigID, current.LastPublished, current.PublishedRevision,
+				))
 			}
 		default:
 			return CookieConsentPublicationState{}, publicationStatusError(current)
@@ -413,10 +420,8 @@ func cookieConsentPublicationState(
 		return CookieConsentPublicationState{}, err
 	}
 	args.ConfigID = current.ConfigID
-	if args.KeepUnclassifiedTattles == nil {
-		keep := true
-		args.KeepUnclassifiedTattles = &keep
-	}
+	keep := keepUnclassifiedTattles(args.KeepUnclassifiedTattles)
+	args.KeepUnclassifiedTattles = &keep
 	return CookieConsentPublicationState{
 		CookieConsentPublicationArgs: args,
 		CustomerID:                   current.CustomerID,
@@ -463,6 +468,9 @@ func normalizePublicationPollOptions(opts publicationPollOptions) publicationPol
 		if opts.MaxInterval <= 0 {
 			opts.MaxInterval = defaultPublicationMaxInterval
 		}
+	}
+	if opts.Warn == nil {
+		opts.Warn = func(string) {}
 	}
 	if opts.MaxInterval > 0 && opts.InitialInterval > opts.MaxInterval {
 		opts.InitialInterval = opts.MaxInterval

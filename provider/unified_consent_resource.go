@@ -1,10 +1,10 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -22,12 +22,13 @@ const (
 
 var validConsentActions = []string{"ACCEPT", "REJECT", "UNSELECTED"}
 
-// ConsentResource manages Osano Unified Consent submissions.
-type ConsentResource struct{}
+// Consent manages Osano Unified Consent submissions.
+type Consent struct{}
 
 // ConsentArgs represents the inputs for creating a consent record.
 type ConsentArgs struct {
-	Subject             ConsentSubject     `pulumi:"subject" provider:"replaceOnChanges"`
+	// The subject identifiers are personal data, so they are secrets in state and outputs.
+	Subject             ConsentSubject     `pulumi:"subject" provider:"secret,replaceOnChanges"`
 	Compliance          *ConsentCompliance `pulumi:"compliance,optional" provider:"replaceOnChanges"`
 	Actions             []ConsentAction    `pulumi:"actions,optional" provider:"replaceOnChanges"`
 	Attributes          map[string]string  `pulumi:"attributes,optional" provider:"replaceOnChanges"`
@@ -75,6 +76,7 @@ type ConsentAction struct {
 
 // Annotate documents a consent action.
 func (a *ConsentAction) Annotate(an infer.Annotator) {
+	an.Describe(a, "One consent decision: the subject's action for a privacy protocol within a configuration.")
 	an.Describe(&a.Target, "The privacy protocol ID (the Target ID on the privacy protocol's edit page).")
 	an.Describe(&a.Vendor, "The Unified Consent configuration ID the consent is recorded for.")
 	an.Describe(&a.Action, "The subject's choice: ACCEPT, REJECT, or UNSELECTED.")
@@ -83,31 +85,37 @@ func (a *ConsentAction) Annotate(an infer.Annotator) {
 
 // Annotate documents the consent subject.
 func (s *ConsentSubject) Annotate(a infer.Annotator) {
+	a.Describe(s, "The subject a consent is recorded for, identified by a verified ID or an anonymous ID.")
 	a.Describe(&s.VerifiedID, "The subject's verified ID. Must not contain #, %, or spaces.")
 	a.Describe(&s.AnonymousID, "The subject's anonymous ID. Must not contain #, %, or spaces.")
 }
 
 // Annotate documents the compliance metadata.
 func (c *ConsentCompliance) Annotate(a infer.Annotator) {
+	a.Describe(c, "Compliance metadata recorded with a consent: the privacy policy in effect and the GPC signal.")
 	a.Describe(&c.PrivacyPolicy, "The privacy policy in effect when the consent was given.")
 	a.Describe(&c.GPC, "1 if the Global Privacy Control signal is enabled, 0 otherwise.")
 }
 
 // Annotate documents the privacy policy reference.
 func (pp *ConsentPrivacyPolicy) Annotate(a infer.Annotator) {
+	a.Describe(pp, "The published privacy policy a consent was given under.")
 	a.Describe(&pp.Version, "The privacy policy version active when the consent was submitted.")
 	a.Describe(&pp.URL, "The privacy policy URL.")
 }
 
 // Annotate registers the Consent resource token and description.
-func (r *ConsentResource) Annotate(a infer.Annotator) {
+func (r *Consent) Annotate(a infer.Annotator) {
 	a.SetToken("index", "Consent")
 	a.Describe(
 		r,
 		"Submits a Unified Consent decision for a subject. Consents are immutable in Osano: changing any "+
 			"input submits a new consent (replacement), and destroying the resource only removes it from "+
-			"Pulumi state. Set origin to gpc and omit actions to submit a Global Privacy Control consent, "+
-			"whose actions Osano derives and returns in gpcActions.",
+			"Pulumi state. Refresh confirms that Osano still reports consent for the subject and never "+
+			"removes the resource, so a refresh cannot cause a consent to be submitted again. The resource "+
+			"cannot be imported, because Osano exposes only the merged consent of a subject. Set origin to "+
+			"gpc and omit actions to submit a Global Privacy Control consent, whose actions Osano derives and "+
+			"returns in gpcActions.",
 	)
 }
 
@@ -150,12 +158,12 @@ func (args *ConsentArgs) Annotate(a infer.Annotator) {
 // Annotate documents the computed consent resource state fields.
 func (state *ConsentState) Annotate(a infer.Annotator) {
 	a.Describe(&state.ConsentID, "Synthetic identifier used by Pulumi to track consent submissions.")
-	a.Describe(&state.LastSynced, "Timestamp of the last refresh from the Osano API (RFC3339).")
+	a.Describe(&state.LastSynced, "RFC 3339 timestamp of the submission that created this resource.")
 	a.Describe(&state.GPCActions, "The actions Osano derived for a GPC consent submitted without actions.")
 }
 
 // Create submits a new consent record to Osano.
-func (r *ConsentResource) Create(
+func (r *Consent) Create(
 	ctx context.Context, req infer.CreateRequest[ConsentArgs],
 ) (infer.CreateResponse[ConsentState], error) {
 	state, id, err := applyConsent(ctx, req.Inputs, "", req.DryRun)
@@ -169,10 +177,22 @@ func (r *ConsentResource) Create(
 	}, nil
 }
 
-// Read refreshes the local state from the upstream unified consent payload.
-func (r *ConsentResource) Read(
+// Read confirms that Osano still reports consent for the subject. It never changes the resource:
+// the unified consent payload merges every consent for the subject, so it cannot be mapped back to
+// this submission, and writing it into the inputs would force a replacement (a duplicate consent
+// POST) on the next update. A subject without consent is reported as a warning rather than by
+// removing the resource from state, because the next `pulumi up` would then submit the consent
+// again, without the subject's involvement, for example after Osano honored an erasure request.
+func (r *Consent) Read(
 	ctx context.Context, req infer.ReadRequest[ConsentArgs, ConsentState],
 ) (infer.ReadResponse[ConsentArgs, ConsentState], error) {
+	if req.State.ConsentID == "" {
+		// pulumi import passes empty state: there is no per-submission lookup to import from.
+		return infer.ReadResponse[ConsentArgs, ConsentState]{}, errors.New(
+			"osano:index:Consent cannot be imported: Osano exposes only the merged consent of a subject, " +
+				"not individual submissions",
+		)
+	}
 	subjectRef, err := req.State.Subject.reference()
 	if err != nil {
 		return infer.ReadResponse[ConsentArgs, ConsentState]{}, err
@@ -184,24 +204,67 @@ func (r *ConsentResource) Read(
 		return infer.ReadResponse[ConsentArgs, ConsentState]{}, err
 	}
 	if !found {
-		return infer.ReadResponse[ConsentArgs, ConsentState]{ID: ""}, nil
+		p.GetLogger(ctx).Warningf(
+			"Osano reports no consent for the subject of %s. The resource is kept so that a refresh never "+
+				"submits the consent again; remove it from the program to stop tracking it.",
+			req.ID,
+		)
 	}
-
-	// The unified consent payload merges every consent for the subject, so it cannot be mapped back to
-	// this submission. Writing it into inputs would force a replacement (a duplicate consent POST) on
-	// the next update, so refresh only confirms the subject still has consent and records the sync time.
-	updatedState := req.State
-	updatedState.LastSynced = time.Now().UTC().Format(time.RFC3339)
 
 	return infer.ReadResponse[ConsentArgs, ConsentState]{
 		ID:     req.ID,
 		Inputs: req.Inputs,
-		State:  updatedState,
+		State:  req.State,
 	}, nil
 }
 
+// Diff compares the submitted inputs with the new ones by value and reports every difference as a
+// replacement, because consents are immutable in Osano and any change submits a new one.
+//
+// The framework's default diff compares the raw property values, for which a secret and the same
+// plain value differ. State written by an earlier release holds subject as a plain value, and the
+// SDKs generated from this release send it as a secret, so the default diff would replace, and
+// therefore submit again, every consent in a stack on the first update after an upgrade.
+func (r *Consent) Diff(
+	_ context.Context, req infer.DiffRequest[ConsentArgs, ConsentState],
+) (infer.DiffResponse, error) {
+	diff := map[string]p.PropertyDiff{}
+	for name, changed := range consentInputChanges(req.State.ConsentArgs, req.Inputs) {
+		if changed {
+			diff[name] = p.PropertyDiff{Kind: p.UpdateReplace, InputDiff: true}
+		}
+	}
+	return infer.DiffResponse{HasChanges: len(diff) > 0, DetailedDiff: diff}, nil
+}
+
+// consentInputChanges reports, per input, whether it differs between the previous and new inputs.
+// An absent list or map equals an empty one: both submit the same payload.
+func consentInputChanges(previous, next ConsentArgs) map[string]bool {
+	return map[string]bool{
+		"subject":             previous.Subject != next.Subject,
+		"compliance":          !reflect.DeepEqual(previous.Compliance, next.Compliance),
+		"actions":             !emptyOrDeepEqual(previous.Actions, next.Actions),
+		"attributes":          !emptyOrDeepEqual(previous.Attributes, next.Attributes),
+		"origin":              previous.Origin != next.Origin,
+		"jurisdiction":        previous.Jurisdiction != next.Jurisdiction,
+		"tags":                !emptyOrDeepEqual(previous.Tags, next.Tags),
+		"sessionToken":        !ptrStringEqual(previous.SessionToken, next.SessionToken),
+		"countryCodeOverride": !ptrStringEqual(previous.CountryCodeOverride, next.CountryCodeOverride),
+		"regionCodeOverride":  !ptrStringEqual(previous.RegionCodeOverride, next.RegionCodeOverride),
+	}
+}
+
+// emptyOrDeepEqual treats a nil slice or map as equal to an empty one.
+func emptyOrDeepEqual[T any](previous, next T) bool {
+	previousValue, nextValue := reflect.ValueOf(previous), reflect.ValueOf(next)
+	if previousValue.Len() == 0 && nextValue.Len() == 0 {
+		return true
+	}
+	return reflect.DeepEqual(previous, next)
+}
+
 // Delete forgets the local Pulumi resource without deleting upstream consent history.
-func (r *ConsentResource) Delete(context.Context, infer.DeleteRequest[ConsentState]) (infer.DeleteResponse, error) {
+func (r *Consent) Delete(context.Context, infer.DeleteRequest[ConsentState]) (infer.DeleteResponse, error) {
 	// Osano consents are immutable historical records. Destroying the Pulumi resource
 	// simply forgets the local tracking without attempting to delete upstream data.
 	return infer.DeleteResponse{}, nil
@@ -220,19 +283,19 @@ func applyConsent(
 		}
 	}
 
+	if dryRun {
+		// The ID and timestamp are assigned when the consent is submitted; a preview leaves them unknown.
+		return ConsentState{ConsentArgs: inputs}, "", nil
+	}
+
 	id := existingID
 	if id == "" {
 		id = "consent-" + uuid.NewString()
 	}
-
 	state := ConsentState{
 		ConsentArgs: inputs,
 		ConsentID:   id,
 		LastSynced:  time.Now().UTC().Format(time.RFC3339),
-	}
-
-	if dryRun {
-		return state, id, nil
 	}
 
 	client := newAPIClient(ctx)
@@ -255,7 +318,7 @@ func applyConsent(
 // The action and origin values are listed only in the prose of Osano's API reference, not in its
 // schema, so Osano may have accepted other values. Those two checks apply only to new or changed
 // values: a consent that an earlier provider version submitted keeps previewing unchanged.
-func (r *ConsentResource) Check(
+func (r *Consent) Check(
 	ctx context.Context, req infer.CheckRequest,
 ) (infer.CheckResponse[ConsentArgs], error) {
 	args, failures, err := infer.DefaultCheck[ConsentArgs](ctx, req.NewInputs)

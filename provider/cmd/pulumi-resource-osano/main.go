@@ -1,6 +1,4 @@
 // Package main is the Pulumi Osano provider plugin entrypoint.
-//
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package main
 
 import (

@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -9,14 +8,15 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
-
-	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
 	"github.com/pulumi/pulumi/sdk/v3/go/property"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
 
 func TestCookieConsentPublicationCheck(t *testing.T) {
@@ -499,33 +499,47 @@ func TestPublishCookieConsentErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("repeated stale error stops after bounded polls", func(t *testing.T) {
-		getCount := 0
-		postCount := 0
+	// Osano can queue a publication for a long time behind its publication batches, so a config that
+	// keeps reporting its previous error is waited for until the deadline, with one warning.
+	t.Run("repeated stale error keeps polling until the deadline", func(t *testing.T) {
+		var getCount, postCount atomic.Int32
 		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			assertCMPRequest(t, r, r.Method, r.URL.Path)
 			if r.Method == http.MethodPost {
-				postCount++
+				postCount.Add(1)
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			getCount++
+			getCount.Add(1)
 			writePublicationConfigResponse(t, w, "error", 100, 3)
 		}))
 		defer api.Close()
 
-		_, err := publishCookieConsent(
-			t.Context(), newCMPJSONClient(t, api.URL), publicationArgsFixture(), zeroPublicationPollOptions(),
-		)
-		if err == nil || !strings.Contains(err.Error(), "did not start a new publication") ||
-			!strings.Contains(err.Error(), "status=error") {
-			t.Fatalf("expected bounded stale error diagnostic, got %v", err)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		var warnings []string
+		polls := 0
+		opts := zeroPublicationPollOptions()
+		opts.Warn = func(message string) { warnings = append(warnings, message) }
+		opts.Sleep = func(ctx context.Context, _ time.Duration) error {
+			polls++
+			if polls == 2*staleErrorWarningPolls {
+				cancel() // the deadline a customTimeout would impose
+			}
+			return ctx.Err()
 		}
-		if postCount != 1 {
-			t.Fatalf("expected one POST, got %d", postCount)
+		_, err := publishCookieConsent(ctx, newCMPJSONClient(t, api.URL), publicationArgsFixture(), opts)
+		if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "wait for Cookie Consent publication") {
+			t.Fatalf("expected the wait to end only with the deadline, got %v", err)
 		}
-		if want := 1 + maxStaleErrorPolls; getCount != want {
-			t.Fatalf("expected baseline plus %d stale polls (%d GETs), got %d", maxStaleErrorPolls, want, getCount)
+		if postCount.Load() != 1 {
+			t.Fatalf("expected one POST, got %d", postCount.Load())
+		}
+		if want := int32(1 + 2*staleErrorWarningPolls); getCount.Load() != want {
+			t.Fatalf("expected the baseline plus every stale poll (%d GETs), got %d", want, getCount.Load())
+		}
+		if len(warnings) != 1 || !strings.Contains(warnings[0], "still reports its previous publication error") {
+			t.Fatalf("expected exactly one stale-error warning, got %q", warnings)
 		}
 	})
 
@@ -647,8 +661,8 @@ func TestCookieConsentPublicationLifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if createResp.ID != "preview" {
-			t.Fatalf("expected preview ID, got %q", createResp.ID)
+		if createResp.ID != "config-id" {
+			t.Fatalf("expected the preview to use the config ID, got %q", createResp.ID)
 		}
 		_, err = server.Update(p.UpdateRequest{
 			ID:     "config-id",

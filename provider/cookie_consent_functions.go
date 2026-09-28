@@ -1,4 +1,3 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
@@ -10,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
-
 	"github.com/pulumi/pulumi-go-provider/infer"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
 
 const (
@@ -20,6 +19,10 @@ const (
 	cookieConsentConfigsPageSize  = 1000
 	cookieConsentRulesPageSize    = 500
 	cookieConsentAuditLogPageSize = 200
+
+	// maxListPages bounds every pagination loop, so an endpoint that keeps answering with a fresh
+	// cursor cannot run an operation forever or without bound on memory.
+	maxListPages = 1000
 
 	cookieConsentAuditLogPath = "/v1/cookie-consent/audit-log"
 )
@@ -91,7 +94,7 @@ func (g *GetCookieConsentConfig) Invoke(
 	if configID == "" {
 		return infer.FunctionResponse[GetCookieConsentConfigResult]{}, errors.New("configId is required")
 	}
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentConfigResult]{}, err
 	}
@@ -150,6 +153,7 @@ type CookieConsentConfigDetails struct {
 
 // Annotate documents the configuration list item.
 func (d *CookieConsentConfigDetails) Annotate(a infer.Annotator) {
+	a.Describe(d, "A Cookie Consent configuration as Osano reports it, with its install script.")
 	a.Describe(&d.ConfigID, "The Osano config ID (UUID).")
 	describeCookieConsentConfigFields(a, cookieConsentConfigFieldPointers{
 		name: &d.Name, domains: &d.Domains, mode: &d.Mode, orgIDs: &d.OrgIDs,
@@ -289,7 +293,7 @@ func (g *GetCookieConsentConfigs) Invoke(
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentConfigsResult]{}, err
 	}
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentConfigsResult]{}, err
 	}
@@ -405,17 +409,18 @@ type GetCookieConsentRulesArgs struct {
 	ConfigID       string  `pulumi:"configId"`
 	StoreType      *string `pulumi:"storeType,optional"`
 	Classification *string `pulumi:"classification,optional"`
+	MaxResults     *int    `pulumi:"maxResults,optional"`
 }
 
 // Annotate documents the getCookieConsentRules inputs.
 func (args *GetCookieConsentRulesArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.ConfigID, "The Osano Cookie Consent config ID whose rules are listed.")
-	a.Describe(&args.StoreType, "Only return rules of this storage type: cookies, scripts, iframes, or localStorage.")
+	a.Describe(&args.StoreType, "Only return rules of this storage type: "+strings.Join(storeTypeValues(), ", ")+".")
 	a.Describe(
 		&args.Classification,
-		"Only return rules with this classification: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, "+
-			"or PERSONALIZATION.",
+		"Only return rules with this classification: "+strings.Join(ruleClassifications, ", ")+".",
 	)
+	a.Describe(&args.MaxResults, "Stop after this many rules. Unset or 0 returns every matching rule.")
 }
 
 // CookieConsentRuleDetails is one rule in a getCookieConsentRules result.
@@ -438,6 +443,7 @@ type CookieConsentRuleDetails struct {
 
 // Annotate documents the rule list item.
 func (d *CookieConsentRuleDetails) Annotate(a infer.Annotator) {
+	a.Describe(d, "A classification rule of a Cookie Consent configuration as Osano reports it.")
 	a.Describe(&d.RuleID, "The server-assigned integer rule ID. Import a rule with <configId>/<ruleId>.")
 	a.Describe(&d.ConfigID, "The configuration the rule belongs to.")
 	a.Describe(
@@ -497,15 +503,22 @@ func (g *GetCookieConsentRules) Invoke(
 		query.Set("type", apiType)
 	}
 	if req.Input.Classification != nil && *req.Input.Classification != "" {
-		if !validClassifications[*req.Input.Classification] {
-			return infer.FunctionResponse[GetCookieConsentRulesResult]{}, fmt.Errorf(
-				"classification must be one of: ANALYTICS, BLACKLISTED, ESSENTIAL, HIDDEN, MARKETING, PERSONALIZATION; got %q",
-				*req.Input.Classification,
-			)
+		if err := oneOf("classification", *req.Input.Classification, ruleClassifications); err != nil {
+			return infer.FunctionResponse[GetCookieConsentRulesResult]{}, err
 		}
 		query.Set("classification", *req.Input.Classification)
 	}
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	maxResults := 0
+	if req.Input.MaxResults != nil {
+		if *req.Input.MaxResults < 0 {
+			return infer.FunctionResponse[GetCookieConsentRulesResult]{}, errors.New("maxResults must not be negative")
+		}
+		maxResults = *req.Input.MaxResults
+		if maxResults > 0 && maxResults < cookieConsentRulesPageSize {
+			query.Set("limit", strconv.Itoa(maxResults))
+		}
+	}
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentRulesResult]{}, err
 	}
@@ -515,6 +528,9 @@ func (g *GetCookieConsentRules) Invoke(
 		func(page []cmpRuleResponse) bool {
 			for idx := range page {
 				rules = append(rules, cookieConsentRuleDetailsFromResponse(page[idx], configID))
+				if maxResults > 0 && len(rules) >= maxResults {
+					return false
+				}
 			}
 			return true
 		})
@@ -557,23 +573,6 @@ func cookieConsentRuleDetailsFromResponse(resp cmpRuleResponse, configID string)
 	}
 }
 
-// ruleAPIType maps a provider storeType (cookies, scripts, ...) to the singular type the list
-// endpoints filter on.
-func ruleAPIType(storeType string) (string, error) {
-	switch storeType {
-	case "cookies":
-		return "cookie", nil
-	case "scripts":
-		return "script", nil
-	case "iframes":
-		return "iframe", nil
-	case "localStorage":
-		return "localStorage", nil
-	default:
-		return "", fmt.Errorf("storeType must be one of: cookies, scripts, iframes, localStorage; got %q", storeType)
-	}
-}
-
 // GetCookieConsentDiscoveries lists what osano.js or URL scans discovered for a configuration.
 type GetCookieConsentDiscoveries struct{}
 
@@ -588,7 +587,8 @@ func (args *GetCookieConsentDiscoveriesArgs) Annotate(a infer.Annotator) {
 	a.Describe(&args.ConfigID, "The Osano Cookie Consent config ID whose discoveries are listed.")
 	a.Describe(
 		&args.StoreType,
-		"The storage type to list: cookies (default, as in the Osano API), scripts, iframes, or localStorage.",
+		"The storage type to list: cookies (the default, as in the Osano API), "+
+			strings.Join(storeTypeValues()[1:], ", ")+".",
 	)
 }
 
@@ -605,6 +605,7 @@ type CookieConsentDiscovery struct {
 
 // Annotate documents the discovery item.
 func (d *CookieConsentDiscovery) Annotate(a infer.Annotator) {
+	a.Describe(d, "A cookie, script, iframe, or localStorage key that osano.js or a URL scan discovered on the site.")
 	a.Describe(&d.StoreKey, "The discovered cookie name, script or iframe URL, or localStorage key.")
 	a.Describe(&d.StoreType, "The discovery's storage type as Osano reports it.")
 	a.Describe(&d.Created, "When the discovery was first seen (ISO 8601).")
@@ -658,7 +659,7 @@ func (g *GetCookieConsentDiscoveries) Invoke(
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentDiscoveriesResult]{}, err
 	}
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentDiscoveriesResult]{}, err
 	}
@@ -749,6 +750,7 @@ type CookieConsentAuditEvent struct {
 
 // Annotate documents the audit event.
 func (e *CookieConsentAuditEvent) Annotate(a infer.Annotator) {
+	a.Describe(e, "One Cookie Consent audit log event: a configuration, rule, or publication change and who made it.")
 	a.Describe(&e.ID, "The audit event ID.")
 	a.Describe(&e.Module, "The Osano module, currently always CMP.")
 	a.Describe(&e.EventType, "The machine-readable event type, such as cmp.configPublished.")
@@ -768,6 +770,7 @@ type CookieConsentAuditResource struct {
 
 // Annotate documents the audit event resource.
 func (r *CookieConsentAuditResource) Annotate(a infer.Annotator) {
+	a.Describe(r, "A resource an audit log event acted on.")
 	a.Describe(&r.ResourceID, "The resource ID; for CMP events, the config ID.")
 	a.Describe(&r.ResourceType, "The resource type, such as CMP.")
 	a.Describe(&r.ResourceName, "The resource name, when known.")
@@ -802,7 +805,7 @@ func (g *GetCookieConsentAuditLog) Invoke(
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentAuditLogResult]{}, err
 	}
-	client, err := customerClientFromConfig(infer.GetConfig[Config](ctx))
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.FunctionResponse[GetCookieConsentAuditLogResult]{}, err
 	}
@@ -913,7 +916,7 @@ func paginateCustomerListWith[T any](
 ) error {
 	seen := map[string]bool{}
 	current := query
-	for {
+	for pages := 1; ; pages++ {
 		var page struct {
 			Items []T    `json:"items"`
 			Next  string `json:"next"`
@@ -926,6 +929,9 @@ func paginateCustomerListWith[T any](
 		}
 		if seen[page.Next] {
 			return fmt.Errorf("pagination returned repeated cursor %q", page.Next)
+		}
+		if pages >= maxListPages {
+			return fmt.Errorf("pagination exceeded %d pages", maxListPages)
 		}
 		seen[page.Next] = true
 		if nextOnly {

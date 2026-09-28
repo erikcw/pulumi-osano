@@ -1,24 +1,25 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/pulumi/pulumi-go-provider/infer"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
 
 type headerKind int
 
 const (
+	// headerUnifiedConsent authenticates with the Unified Consent API key.
 	headerUnifiedConsent headerKind = iota
-	headerOsano
 	// headerSubject authenticates subject-verification routes with every configured key. Osano's guide
 	// requires the Osano key for routes that create or verify subjects, while its OpenAPI spec lists
 	// the Unified Consent key for these routes, so either key alone is enough.
@@ -77,66 +78,48 @@ func validateGeoOverride(country, region *string) error {
 	return nil
 }
 
+// headers returns the override headers. ISO 3166 codes are upper case, so a lower-case code is
+// normalized rather than sent as Osano would reject it.
 func (g geoOverride) headers() http.Header {
 	headers := http.Header{}
-	if code := strings.TrimSpace(g.CountryCode); code != "" {
+	if code := strings.ToUpper(strings.TrimSpace(g.CountryCode)); code != "" {
 		headers.Set("x-country-code-override", code)
 	}
-	if code := strings.TrimSpace(g.RegionCode); code != "" {
+	if code := strings.ToUpper(strings.TrimSpace(g.RegionCode)); code != "" {
 		headers.Set("x-region-code-override", code)
 	}
 	return headers
 }
 
+// apiClient calls the Unified Consent Core API through the shared transport.
 type apiClient struct {
-	settings   *apiSettings
-	httpClient *http.Client
-	userAgent  string
+	settings *settings
+	client   *osanoclient.Client
+	// err is a configuration error found while resolving the settings; it is reported by every request.
+	err error
 }
 
 func newAPIClient(ctx context.Context) *apiClient {
-	settings := loadAPISettings(ctx)
-	return &apiClient{
-		settings:   settings,
-		httpClient: newHTTPClient(settings.timeout),
-		userAgent:  providerUserAgent(),
+	resolved, err := infer.GetConfig[Config](ctx).resolved()
+	if err != nil {
+		return &apiClient{err: err}
 	}
-}
-
-// providerUserAgent identifies this provider and its version to the Osano APIs, for example
-// pulumi-osano/0.1.0.
-func providerUserAgent() string {
-	return userAgentForVersion(providerVersion)
-}
-
-// userAgentForVersion builds the provider user agent from a build version. GoReleaser stamps the
-// git tag (v0.1.0) and `make provider` the bare version (0.1.0), so drop a leading "v" to send the
-// same pulumi-osano/0.1.0 either way.
-func userAgentForVersion(version string) string {
-	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if version == "" {
-		return "pulumi-osano/dev"
-	}
-	return "pulumi-osano/" + version
+	return &apiClient{settings: resolved, client: resolved.unifiedConsent}
 }
 
 func (c *apiClient) CreateConsent(
 	ctx context.Context, payload consentRequestPayload, geo geoOverride,
 ) (map[string]any, error) {
 	body, _, err := c.doJSONWithHeaders(
-		ctx, http.MethodPost, "/v2/consents", nil, payload, geo.headers(), headerUnifiedConsent, http.StatusCreated,
+		ctx, http.MethodPost, "/v2/consents", nil, payload, geo.headers(), headerUnifiedConsent,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(bytes.TrimSpace(body)) == 0 {
-		return map[string]any{}, nil
-	}
-
-	var data map[string]any
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("failed to decode consent response: %w", err)
+	data := map[string]any{}
+	if err := decodeOptionalJSON(body, &data, "consent"); err != nil {
+		return nil, err
 	}
 	return data, nil
 }
@@ -147,7 +130,7 @@ func (c *apiClient) CreateGPCConsent(
 	ctx context.Context, payload gpcConsentRequestPayload, geo geoOverride,
 ) ([]ConsentAction, error) {
 	body, _, err := c.doJSONWithHeaders(
-		ctx, http.MethodPost, "/v2/consents/gpc", nil, payload, geo.headers(), headerUnifiedConsent, http.StatusCreated,
+		ctx, http.MethodPost, "/v2/consents/gpc", nil, payload, geo.headers(), headerUnifiedConsent,
 	)
 	if err != nil {
 		return nil, err
@@ -156,14 +139,14 @@ func (c *apiClient) CreateGPCConsent(
 	var data struct {
 		GPCActions []ConsentAction `json:"gpcActions"`
 	}
-	if len(bytes.TrimSpace(body)) > 0 {
-		if err := json.Unmarshal(body, &data); err != nil {
-			return nil, fmt.Errorf("failed to decode GPC consent response: %w", err)
-		}
+	if err := decodeOptionalJSON(body, &data, "GPC consent"); err != nil {
+		return nil, err
 	}
 	return data.GPCActions, nil
 }
 
+// FetchUnifiedConsent reads the merged consent of a subject. Osano documents 400 as its answer when
+// the subject has no consent, so 400 reports found=false.
 func (c *apiClient) FetchUnifiedConsent(
 	ctx context.Context,
 	subjectRef, referenceType string,
@@ -179,21 +162,11 @@ func (c *apiClient) FetchUnifiedConsent(
 
 	path := "/v2/consents/unified/" + url.PathEscape(subjectRef)
 	body, status, err := c.doJSONWithHeaders(
-		ctx,
-		http.MethodGet,
-		path,
-		query,
-		nil,
-		geo.headers(),
-		headerUnifiedConsent,
-		http.StatusOK,
-		http.StatusBadRequest,
+		ctx, http.MethodGet, path, query, nil, geo.headers(), headerUnifiedConsent, http.StatusBadRequest,
 	)
 	if err != nil {
 		return nil, false, err
 	}
-
-	// Osano answers 400 when the subject has no consents.
 	if status == http.StatusBadRequest {
 		return nil, false, nil
 	}
@@ -202,10 +175,11 @@ func (c *apiClient) FetchUnifiedConsent(
 	if err := json.Unmarshal(body, &data); err != nil {
 		return nil, false, fmt.Errorf("failed to decode unified consent payload: %w", err)
 	}
-
 	return &data, true, nil
 }
 
+// FetchSubject resolves a subject reference. Only 404 means the subject is unknown; any other
+// error, including a 400 for a malformed request or key, is reported.
 func (c *apiClient) FetchSubject(ctx context.Context, subjectRef, referenceType string) (*subjectPayload, bool, error) {
 	ref, err := normalizeReferenceType(referenceType)
 	if err != nil {
@@ -216,22 +190,11 @@ func (c *apiClient) FetchSubject(ctx context.Context, subjectRef, referenceType 
 	query.Set("ref", ref)
 
 	path := "/v2/subjects/" + url.PathEscape(subjectRef)
-	body, status, err := c.doJSON(
-		ctx,
-		http.MethodGet,
-		path,
-		query,
-		nil,
-		headerUnifiedConsent,
-		http.StatusOK,
-		http.StatusBadRequest,
-		http.StatusNotFound,
-	)
+	body, status, err := c.doJSON(ctx, http.MethodGet, path, query, nil, headerUnifiedConsent, http.StatusNotFound)
 	if err != nil {
 		return nil, false, err
 	}
-
-	if status == http.StatusBadRequest || status == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return nil, false, nil
 	}
 
@@ -239,12 +202,11 @@ func (c *apiClient) FetchSubject(ctx context.Context, subjectRef, referenceType 
 	if err := json.Unmarshal(body, &data); err != nil {
 		return nil, false, fmt.Errorf("failed to decode subject payload: %w", err)
 	}
-
 	return &data, true, nil
 }
 
 func (c *apiClient) FetchConfig(ctx context.Context) (map[string]any, error) {
-	body, _, err := c.doJSON(ctx, http.MethodGet, "/v2/config", nil, nil, headerUnifiedConsent, http.StatusOK)
+	body, _, err := c.doJSON(ctx, http.MethodGet, "/v2/config", nil, nil, headerUnifiedConsent)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +230,7 @@ func (c *apiClient) FetchCollections(
 		query.Set("type", trimmed)
 	}
 
-	body, _, err := c.doJSON(ctx, http.MethodGet, "/v2/collections", query, nil, headerUnifiedConsent, http.StatusOK)
+	body, _, err := c.doJSON(ctx, http.MethodGet, "/v2/collections", query, nil, headerUnifiedConsent)
 	if err != nil {
 		return nil, err
 	}
@@ -284,37 +246,12 @@ func (c *apiClient) FetchCollection(
 	ctx context.Context,
 	collectionID string,
 ) (collection map[string]any, found bool, err error) {
-	path := "/v2/collections/" + url.PathEscape(collectionID)
-	body, status, err := c.doJSON(
-		ctx,
-		http.MethodGet,
-		path,
-		nil,
-		nil,
-		headerUnifiedConsent,
-		http.StatusOK,
-		http.StatusNotFound,
-	)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if status == http.StatusNotFound {
-		return nil, false, nil
-	}
-
-	if err := json.Unmarshal(body, &collection); err != nil {
-		return nil, false, fmt.Errorf("failed to decode collection payload: %w", err)
-	}
-
-	return collection, true, nil
+	return c.fetchOptionalObject(ctx, "/v2/collections/"+url.PathEscape(collectionID), "collection")
 }
 
 func (c *apiClient) CheckConsent(ctx context.Context, subjectID string, geo geoOverride) (bool, error) {
 	path := "/v2/consents/check/" + url.PathEscape(subjectID)
-	body, _, err := c.doJSONWithHeaders(
-		ctx, http.MethodGet, path, nil, nil, geo.headers(), headerUnifiedConsent, http.StatusOK,
-	)
+	body, _, err := c.doJSONWithHeaders(ctx, http.MethodGet, path, nil, nil, geo.headers(), headerUnifiedConsent)
 	if err != nil {
 		return false, err
 	}
@@ -328,6 +265,8 @@ func (c *apiClient) CheckConsent(ctx context.Context, subjectID string, geo geoO
 	return resp.Exists, nil
 }
 
+// FetchConsentProfile reads the consent profile of a hashed subject ID. Osano documents 400 as its
+// answer when there is no consent, so 400 and 404 report found=false.
 func (c *apiClient) FetchConsentProfile(
 	ctx context.Context,
 	hashedSubjectID, configID string,
@@ -337,21 +276,12 @@ func (c *apiClient) FetchConsentProfile(
 	query.Set("configId", configID)
 	path := "/v2/consent-profiles/" + url.PathEscape(hashedSubjectID)
 	body, status, err := c.doJSONWithHeaders(
-		ctx,
-		http.MethodGet,
-		path,
-		query,
-		nil,
-		geo.headers(),
-		headerUnifiedConsent,
-		http.StatusOK,
-		http.StatusBadRequest,
-		http.StatusNotFound,
+		ctx, http.MethodGet, path, query, nil, geo.headers(), headerUnifiedConsent,
+		http.StatusBadRequest, http.StatusNotFound,
 	)
 	if err != nil {
 		return nil, false, err
 	}
-
 	if status == http.StatusBadRequest || status == http.StatusNotFound {
 		return nil, false, nil
 	}
@@ -370,13 +300,13 @@ func (c *apiClient) SendVerificationCode(ctx context.Context, req sendCodeReques
 		endpoint = "/v2/subjects/send-code/sms"
 	}
 
-	body, _, err := c.doJSON(ctx, http.MethodPost, endpoint, nil, req.Payload(), headerSubject, http.StatusOK)
+	body, _, err := c.doJSON(ctx, http.MethodPost, endpoint, nil, req.Payload(), headerSubject)
 	if err != nil {
-		return nil, err
+		return nil, withheldSubjectBody(err)
 	}
 
 	var data map[string]any
-	if len(bytes.TrimSpace(body)) > 0 {
+	if strings.TrimSpace(string(body)) != "" {
 		// The response is undocumented, so a body that is not a JSON object is ignored.
 		if err := json.Unmarshal(body, &data); err != nil {
 			return nil, nil
@@ -396,18 +326,29 @@ func (c *apiClient) VerifySubjectCode(ctx context.Context, req verifyRequest) (m
 		return nil, fmt.Errorf("unsupported verification channel: %s", req.Channel)
 	}
 
-	body, _, err := c.doJSON(ctx, http.MethodPost, endpoint, nil, req.Payload(), headerSubject, http.StatusOK)
+	body, _, err := c.doJSON(ctx, http.MethodPost, endpoint, nil, req.Payload(), headerSubject)
 	if err != nil {
-		return nil, err
+		return nil, withheldSubjectBody(err)
 	}
 
 	var data map[string]any
-	if len(bytes.TrimSpace(body)) > 0 {
-		if err := json.Unmarshal(body, &data); err != nil {
-			return nil, fmt.Errorf("failed to decode verification payload: %w", err)
-		}
+	if err := decodeOptionalJSON(body, &data, "verification"); err != nil {
+		return nil, err
 	}
 	return data, nil
+}
+
+// withheldSubjectBody drops the body of an error response to a subject-verification route. The
+// request carried the subject's email address or phone number, which a validation error may echo.
+func withheldSubjectBody(err error) error {
+	var httpErr *osanoclient.HTTPError
+	if errors.As(err, &httpErr) {
+		return &osanoclient.HTTPError{
+			StatusCode: httpErr.StatusCode,
+			Body:       "(body withheld: the request carried the subject's contact details)",
+		}
+	}
+	return err
 }
 
 // FetchSubjectProfile reads the profile (email and subject ID) of a subject.
@@ -424,29 +365,34 @@ func (c *apiClient) FetchSession(
 	return c.fetchOptionalObject(ctx, "/v2/sessions/"+url.PathEscape(sessionID), "session")
 }
 
-// fetchOptionalObject GETs a JSON object with the Unified Consent key, reporting 400 and 404 as
-// not found.
+// fetchOptionalObject GETs a JSON object with the Unified Consent key, reporting 404 as not found.
 func (c *apiClient) fetchOptionalObject(
 	ctx context.Context, path, what string,
 ) (object map[string]any, found bool, err error) {
-	body, status, err := c.doJSON(
-		ctx, http.MethodGet, path, nil, nil, headerUnifiedConsent,
-		http.StatusOK, http.StatusBadRequest, http.StatusNotFound,
-	)
+	body, status, err := c.doJSON(ctx, http.MethodGet, path, nil, nil, headerUnifiedConsent, http.StatusNotFound)
 	if err != nil {
 		return nil, false, err
 	}
-	if status == http.StatusBadRequest || status == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return nil, false, nil
 	}
 
 	var data map[string]any
-	if len(bytes.TrimSpace(body)) > 0 {
-		if err := json.Unmarshal(body, &data); err != nil {
-			return nil, false, fmt.Errorf("failed to decode %s payload: %w", what, err)
-		}
+	if err := decodeOptionalJSON(body, &data, what); err != nil {
+		return nil, false, err
 	}
 	return data, true, nil
+}
+
+// decodeOptionalJSON decodes body into out unless it is empty.
+func decodeOptionalJSON(body []byte, out any, what string) error {
+	if strings.TrimSpace(string(body)) == "" {
+		return nil
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("failed to decode %s payload: %w", what, err)
+	}
+	return nil
 }
 
 type sendCodeRequest struct {
@@ -505,12 +451,14 @@ func (c *apiClient) doJSON(
 	query url.Values,
 	payload any,
 	key headerKind,
-	expectedStatus ...int,
+	allowedStatus ...int,
 ) (respBody []byte, status int, err error) {
-	return c.doJSONWithHeaders(ctx, method, path, query, payload, nil, key, expectedStatus...)
+	return c.doJSONWithHeaders(ctx, method, path, query, payload, nil, key, allowedStatus...)
 }
 
-// doJSONWithHeaders is doJSON with extra request headers, such as geolocation overrides.
+// doJSONWithHeaders sends one request with the API key headers of kind key plus extra headers, such
+// as geolocation overrides. A 2xx response, or one whose status is in allowedStatus, is returned;
+// any other status is an error.
 func (c *apiClient) doJSONWithHeaders(
 	ctx context.Context,
 	method, path string,
@@ -518,139 +466,49 @@ func (c *apiClient) doJSONWithHeaders(
 	payload any,
 	headers http.Header,
 	key headerKind,
-	expectedStatus ...int,
+	allowedStatus ...int,
 ) (respBody []byte, status int, err error) {
-	base := c.settings.normalizedBaseURL()
-	if _, err := url.Parse(base); err != nil {
-		return nil, 0, fmt.Errorf("invalid base URL %q: %w", c.settings.baseURL, err)
+	if c.err != nil {
+		return nil, 0, c.err
 	}
-
-	// Append rather than resolve so a base URL path prefix (for example a proxy mount) is kept.
-	fullURL, err := url.Parse(base + path)
+	auth, err := c.authHeaders(key)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid path %q: %w", path, err)
+		return nil, 0, err
 	}
-	if query != nil {
-		q := fullURL.Query()
-		for key, values := range query {
-			for _, v := range values {
-				q.Add(key, v)
-			}
-		}
-		fullURL.RawQuery = q.Encode()
-	}
-
-	var body io.Reader
-	if payload != nil {
-		data, err := json.Marshal(payload)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to encode request body: %w", err)
-		}
-		body = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, fullURL.String(), body)
+	resp, err := c.client.Do(ctx, method, path, query, payload,
+		osanoclient.WithHeaders(auth), osanoclient.WithHeaders(headers), osanoclient.AllowStatus(allowedStatus...))
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to create HTTP request: %w", err)
+		return nil, 0, err
 	}
+	return resp.Body, resp.StatusCode, nil
+}
 
-	for name, values := range headers {
-		for _, value := range values {
-			req.Header.Add(name, value)
-		}
-	}
-	req.Header.Set("User-Agent", c.userAgent)
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
+// authHeaders returns the API key headers for a request kind, or an error naming the missing key.
+func (c *apiClient) authHeaders(key headerKind) (http.Header, error) {
+	headers := http.Header{}
 	switch key {
 	case headerUnifiedConsent:
 		if c.settings.unifiedConsentAPIKey == "" {
-			return nil, 0, errors.New(
+			return nil, errors.New(
 				"Unified Consent API key not configured; set osano:unifiedConsentApiKey or OSANO_UC_API_KEY",
 			)
 		}
-		req.Header.Set("x-uc-api-key", c.settings.unifiedConsentAPIKey)
-	case headerOsano:
-		if c.settings.osanoAPIKey == "" {
-			return nil, 0, errors.New(
-				"Osano API key not configured; set osano:osanoApiKey or OSANO_API_KEY",
-			)
-		}
-		req.Header.Set("x-osano-api-key", c.settings.osanoAPIKey)
+		headers.Set("x-uc-api-key", c.settings.unifiedConsentAPIKey)
 	case headerSubject:
 		if c.settings.osanoAPIKey == "" && c.settings.unifiedConsentAPIKey == "" {
-			return nil, 0, errors.New(
+			return nil, errors.New(
 				"no Osano API key configured; set osano:osanoApiKey or OSANO_API_KEY " +
 					"(or osano:unifiedConsentApiKey or OSANO_UC_API_KEY)",
 			)
 		}
 		if c.settings.osanoAPIKey != "" {
-			req.Header.Set("x-osano-api-key", c.settings.osanoAPIKey)
+			headers.Set("x-osano-api-key", c.settings.osanoAPIKey)
 		}
 		if c.settings.unifiedConsentAPIKey != "" {
-			req.Header.Set("x-uc-api-key", c.settings.unifiedConsentAPIKey)
+			headers.Set("x-uc-api-key", c.settings.unifiedConsentAPIKey)
 		}
 	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, 0, transportError(method, fullURL, err)
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("failed to close Osano API response: %w", closeErr)
-		}
-	}()
-
-	respBody, err = io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("failed to read Osano API response: %w", err)
-	}
-
-	if !statusAllowed(resp.StatusCode, expectedStatus) {
-		return nil, resp.StatusCode, &apiError{
-			StatusCode: resp.StatusCode,
-			Body:       strings.TrimSpace(string(respBody)),
-		}
-	}
-
-	return respBody, resp.StatusCode, nil
-}
-
-// transportError reports a request that got no response without the request path or query, which
-// can hold secret identifiers such as a session ID; *url.Error would print the full URL.
-func transportError(method string, target *url.URL, err error) error {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		err = urlErr.Err
-	}
-	return fmt.Errorf("Osano API request failed: %s %s://%s: %w", method, target.Scheme, target.Host, err)
-}
-
-type apiError struct {
-	StatusCode int
-	Body       string
-}
-
-func (e *apiError) Error() string {
-	if strings.TrimSpace(e.Body) == "" {
-		return fmt.Sprintf("osano api request failed with status %d", e.StatusCode)
-	}
-	return fmt.Sprintf("osano api request failed with status %d: %s", e.StatusCode, e.Body)
-}
-
-func statusAllowed(status int, allowed []int) bool {
-	if len(allowed) == 0 {
-		return status >= 200 && status < 300
-	}
-	for _, candidate := range allowed {
-		if status == candidate {
-			return true
-		}
-	}
-	return false
+	return headers, nil
 }
 
 type subjectPayload struct {

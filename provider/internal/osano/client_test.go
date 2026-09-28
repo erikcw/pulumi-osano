@@ -3,19 +3,76 @@ package osano
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
+// recorder captures what a test server received, safely across the handler goroutine.
+type recorder struct {
+	mu       sync.Mutex
+	requests []recordedRequest
+}
+
+type recordedRequest struct {
+	Method  string
+	Path    string
+	RawPath string
+	Query   string
+	Header  http.Header
+	Body    string
+}
+
+func (r *recorder) record(req *http.Request) {
+	body, _ := io.ReadAll(req.Body)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.requests = append(r.requests, recordedRequest{
+		Method:  req.Method,
+		Path:    req.URL.Path,
+		RawPath: req.URL.EscapedPath(),
+		Query:   req.URL.RawQuery,
+		Header:  req.Header.Clone(),
+		Body:    string(body),
+	})
+}
+
+func (r *recorder) all() []recordedRequest {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]recordedRequest(nil), r.requests...)
+}
+
+func (r *recorder) last(t *testing.T) recordedRequest {
+	t.Helper()
+	requests := r.all()
+	if len(requests) == 0 {
+		t.Fatal("no request was recorded")
+	}
+	return requests[len(requests)-1]
+}
+
+func newTestClient(t *testing.T, serverURL string, opts ...ClientOption) *Client {
+	t.Helper()
+	baseURL, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewClient(baseURL, append([]ClientOption{WithInitialBackoff(time.Millisecond)}, opts...)...)
+}
+
 func TestNewClientDefaults(t *testing.T) {
 	t.Parallel()
 
 	baseURL, _ := url.Parse("https://api.example.com")
-	client := NewClient(baseURL, "x-api-key", "test-key")
+	client := NewClient(baseURL, WithHeader("x-api-key", "test-key"))
 
 	if client.maxRetries != defaultMaxRetries {
 		t.Fatalf("expected maxRetries %d, got %d", defaultMaxRetries, client.maxRetries)
@@ -23,11 +80,11 @@ func TestNewClientDefaults(t *testing.T) {
 	if client.initialBackoff != defaultInitialBackoff {
 		t.Fatalf("expected initialBackoff %v, got %v", defaultInitialBackoff, client.initialBackoff)
 	}
-	if client.headerName != "x-api-key" {
-		t.Fatalf("expected headerName x-api-key, got %q", client.headerName)
+	if got := client.headers.Get("x-api-key"); got != "test-key" {
+		t.Fatalf("expected the API key header to be set, got %q", got)
 	}
-	if client.apiKey != "test-key" {
-		t.Fatalf("expected apiKey test-key, got %q", client.apiKey)
+	if client.http.CheckRedirect == nil {
+		t.Fatal("expected the default HTTP client to refuse redirects")
 	}
 }
 
@@ -35,12 +92,13 @@ func TestNewClientOptions(t *testing.T) {
 	t.Parallel()
 
 	baseURL, _ := url.Parse("https://api.example.com")
+	httpClient := &http.Client{Timeout: 17 * time.Second}
 	client := NewClient(
 		baseURL,
-		"x-api-key",
-		"test-key",
 		WithMaxRetries(5),
 		WithInitialBackoff(2*time.Second),
+		WithHTTPClient(httpClient),
+		WithHeader("x-empty", ""),
 	)
 
 	if client.maxRetries != 5 {
@@ -49,19 +107,11 @@ func TestNewClientOptions(t *testing.T) {
 	if client.initialBackoff != 2*time.Second {
 		t.Fatalf("expected initialBackoff 2s, got %v", client.initialBackoff)
 	}
-}
-
-func TestNewClientUsesProvidedHTTPClient(t *testing.T) {
-	t.Parallel()
-
-	baseURL, err := url.Parse("https://api.example.com")
-	if err != nil {
-		t.Fatal(err)
-	}
-	httpClient := &http.Client{Timeout: 17 * time.Second}
-	client := NewClient(baseURL, "x-osano-api-key", "key", WithHTTPClient(httpClient))
 	if client.http != httpClient {
 		t.Fatal("expected NewClient to retain the provided HTTP client")
+	}
+	if _, set := client.headers["X-Empty"]; set {
+		t.Fatal("an empty header value must not be sent")
 	}
 }
 
@@ -113,6 +163,8 @@ func TestRetryAfterDelay(t *testing.T) {
 		{"negative seconds", "-1", 0, false},
 		{"with spaces", " 5 ", 5 * time.Second, true},
 		{"invalid string", "abc", 0, false},
+		{"seconds above the cap", "3600", maxRetryAfterDelay, true},
+		{"seconds that would overflow a Duration", "9223372037", maxRetryAfterDelay, true},
 	}
 
 	for _, tc := range cases {
@@ -140,27 +192,25 @@ func TestRetryAfterDelayHTTPDate(t *testing.T) {
 	if delay != 0 {
 		t.Fatalf("expected a past HTTP-date Retry-After delay of 0, got %s", delay)
 	}
+
+	future := time.Now().Add(2 * time.Hour).UTC().Format(http.TimeFormat)
+	delay, ok = retryAfterDelay(future)
+	if !ok || delay != maxRetryAfterDelay {
+		t.Fatalf("expected a far-future HTTP-date to be capped at %s, got %s (ok=%v)", maxRetryAfterDelay, delay, ok)
+	}
 }
 
 func TestRetryDelay(t *testing.T) {
 	t.Parallel()
 
 	baseURL, _ := url.Parse("https://api.example.com")
-	client := NewClient(baseURL, "x-api-key", "key", WithInitialBackoff(100*time.Millisecond))
+	client := NewClient(baseURL, WithInitialBackoff(100*time.Millisecond))
 
 	t.Run("exponential backoff", func(t *testing.T) {
-		d0 := client.retryDelay(nil, 0)
-		d1 := client.retryDelay(nil, 1)
-		d2 := client.retryDelay(nil, 2)
-
-		if d0 != 100*time.Millisecond {
-			t.Fatalf("attempt 0: expected 100ms, got %v", d0)
-		}
-		if d1 != 200*time.Millisecond {
-			t.Fatalf("attempt 1: expected 200ms, got %v", d1)
-		}
-		if d2 != 400*time.Millisecond {
-			t.Fatalf("attempt 2: expected 400ms, got %v", d2)
+		for attempt, want := range []time.Duration{100 * time.Millisecond, 200 * time.Millisecond, 400 * time.Millisecond} {
+			if got := client.retryDelay(nil, attempt); got != want {
+				t.Fatalf("attempt %d: expected %s, got %s", attempt, want, got)
+			}
 		}
 	})
 
@@ -178,6 +228,27 @@ func TestRetryDelay(t *testing.T) {
 			t.Fatalf("expected 100ms for negative attempt, got %v", delay)
 		}
 	})
+
+	t.Run("backoff never exceeds the cap or overflows", func(t *testing.T) {
+		for _, attempt := range []int{20, 34, 63, 1000} {
+			if delay := client.retryDelay(nil, attempt); delay != maxRetryAfterDelay {
+				t.Fatalf("attempt %d: expected the %s cap, got %s", attempt, maxRetryAfterDelay, delay)
+			}
+		}
+	})
+}
+
+func TestRetryDelayCapsRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	baseURL, _ := url.Parse("https://api.example.com")
+	client := NewClient(baseURL)
+	resp := &http.Response{Header: http.Header{}}
+	resp.Header.Set("Retry-After", "3600")
+
+	if delay := client.retryDelay(resp, 0); delay != maxRetryAfterDelay {
+		t.Fatalf("expected Retry-After to be capped at %s, got %s", maxRetryAfterDelay, delay)
+	}
 }
 
 func TestSleepWithContext(t *testing.T) {
@@ -204,7 +275,7 @@ func TestSleepWithContext(t *testing.T) {
 	t.Run("cancelled context", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		if err := sleepWithContext(ctx, time.Hour); err != context.Canceled {
+		if err := sleepWithContext(ctx, time.Hour); !errors.Is(err, context.Canceled) {
 			t.Fatalf("expected context.Canceled, got %v", err)
 		}
 	})
@@ -213,26 +284,15 @@ func TestSleepWithContext(t *testing.T) {
 func TestDoJSONGetSuccess(t *testing.T) {
 	t.Parallel()
 
+	var rec recorder
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Fatalf("expected GET, got %s", r.Method)
-		}
-		if r.Header.Get("x-api-key") != "test-key" {
-			t.Fatalf("expected x-api-key=test-key, got %q", r.Header.Get("x-api-key"))
-		}
-		if r.Header.Get("accept") != "application/json" {
-			t.Fatalf("expected accept=application/json, got %q", r.Header.Get("accept"))
-		}
-		if ct := r.Header.Get("content-type"); ct != "" {
-			t.Fatalf("GET should not have content-type, got %q", ct)
-		}
+		rec.record(r)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"id": "123"})
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key")
+	client := newTestClient(t, server.URL, WithHeader("x-api-key", "test-key"), WithUserAgent("pulumi-osano/1.2.3"))
 
 	var out map[string]string
 	if err := client.DoJSON(context.Background(), http.MethodGet, "/test", nil, nil, &out); err != nil {
@@ -241,94 +301,101 @@ func TestDoJSONGetSuccess(t *testing.T) {
 	if out["id"] != "123" {
 		t.Fatalf("expected id=123, got %v", out)
 	}
-}
-
-func TestDoJSONSendsUserAgent(t *testing.T) {
-	t.Parallel()
-
-	var got atomic.Value
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got.Store(r.Header.Get("User-Agent"))
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{})
-	}))
-	defer server.Close()
-
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key", WithUserAgent("pulumi-osano/1.2.3"))
-	if err := client.DoJSON(context.Background(), http.MethodGet, "/test", nil, nil, nil); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	got := rec.last(t)
+	if got.Method != http.MethodGet || got.Path != "/test" {
+		t.Fatalf("unexpected request %s %s", got.Method, got.Path)
 	}
-	if ua, _ := got.Load().(string); ua != "pulumi-osano/1.2.3" {
-		t.Fatalf("expected User-Agent pulumi-osano/1.2.3, got %q", ua)
+	for name, want := range map[string]string{
+		"x-api-key": "test-key", "Accept": "application/json", "User-Agent": "pulumi-osano/1.2.3", "Content-Type": "",
+	} {
+		if value := got.Header.Get(name); value != want {
+			t.Fatalf("expected header %s=%q, got %q", name, want, value)
+		}
 	}
 }
 
 func TestDoJSONPostSuccess(t *testing.T) {
 	t.Parallel()
 
+	var rec recorder
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			t.Fatalf("expected POST, got %s", r.Method)
-		}
-		if r.Header.Get("content-type") != "application/json" {
-			t.Fatalf("expected content-type=application/json, got %q", r.Header.Get("content-type"))
-		}
-
-		var body map[string]string
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			t.Fatalf("failed to decode request body: %v", err)
-		}
-		if body["name"] != "test" {
-			t.Fatalf("expected name=test, got %q", body["name"])
-		}
-
+		rec.record(r)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"id": "456"})
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key")
+	client := newTestClient(t, server.URL)
 
 	var out map[string]string
 	if err := client.DoJSON(
-		context.Background(),
-		http.MethodPost,
-		"/items",
-		nil,
-		map[string]string{"name": "test"},
-		&out,
+		context.Background(), http.MethodPost, "/items", nil, map[string]string{"name": "test"}, &out,
 	); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if out["id"] != "456" {
 		t.Fatalf("expected id=456, got %v", out)
 	}
+	got := rec.last(t)
+	if got.Method != http.MethodPost || got.Header.Get("Content-Type") != "application/json" ||
+		got.Body != `{"name":"test"}` {
+		t.Fatalf("unexpected POST %#v", got)
+	}
+}
+
+func TestDoReturnsAllowedStatusesAndPerRequestHeaders(t *testing.T) {
+	t.Parallel()
+
+	var rec recorder
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec.record(r)
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"missing"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL, WithHeader("x-api-key", "test-key"))
+	extra := http.Header{}
+	extra.Set("x-country-code-override", "US")
+	resp, err := client.Do(context.Background(), http.MethodGet, "/things/1", nil, nil,
+		WithHeaders(extra), AllowStatus(http.StatusNotFound))
+	if err != nil {
+		t.Fatalf("an allowed 404 must not be an error, got %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound || string(resp.Body) != `{"message":"missing"}` {
+		t.Fatalf("unexpected response %#v", resp)
+	}
+	got := rec.last(t)
+	if got.Header.Get("x-api-key") != "test-key" || got.Header.Get("x-country-code-override") != "US" {
+		t.Fatalf("expected both the default and the per-request header, got %v", got.Header)
+	}
+
+	_, err = client.Do(context.Background(), http.MethodGet, "/things/1", nil, nil)
+	if !IsHTTPStatus(err, http.StatusNotFound) {
+		t.Fatalf("a 404 that is not allowed must be an HTTPError, got %v", err)
+	}
 }
 
 func TestDoJSONErrorNonRetryable(t *testing.T) {
 	t.Parallel()
 
+	var attempts atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`{"error":"not found"}`))
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key", WithMaxRetries(3))
+	client := newTestClient(t, server.URL, WithMaxRetries(3))
 
 	err := client.DoJSON(context.Background(), http.MethodGet, "/missing", nil, nil, nil)
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) || httpErr.StatusCode != http.StatusNotFound || httpErr.Body != `{"error":"not found"}` {
+		t.Fatalf("expected a 404 HTTPError with the body, got %v", err)
 	}
-	httpErr, ok := err.(*HTTPError)
-	if !ok {
-		t.Fatalf("expected *HTTPError, got %T", err)
-	}
-	if httpErr.StatusCode != http.StatusNotFound {
-		t.Fatalf("expected status 404, got %d", httpErr.StatusCode)
+	if got := attempts.Load(); got != 1 {
+		t.Fatalf("a 404 must not be retried, got %d attempts", got)
 	}
 }
 
@@ -339,6 +406,7 @@ func TestDoJSONRetrySuccess(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		count := attempts.Add(1)
 		if count <= 2 {
+			w.Header().Set("Retry-After", "0")
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte(`{"error":"rate limited"}`))
 			return
@@ -348,8 +416,7 @@ func TestDoJSONRetrySuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key", WithMaxRetries(3), WithInitialBackoff(time.Millisecond))
+	client := newTestClient(t, server.URL, WithMaxRetries(3))
 
 	var out map[string]string
 	if err := client.DoJSON(context.Background(), http.MethodGet, "/test", nil, nil, &out); err != nil {
@@ -374,19 +441,11 @@ func TestDoJSONRetryExhausted(t *testing.T) {
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key", WithMaxRetries(2), WithInitialBackoff(time.Millisecond))
+	client := newTestClient(t, server.URL, WithMaxRetries(2))
 
 	err := client.DoJSON(context.Background(), http.MethodGet, "/test", nil, nil, nil)
-	if err == nil {
-		t.Fatal("expected error after retries exhausted")
-	}
-	httpErr, ok := err.(*HTTPError)
-	if !ok {
-		t.Fatalf("expected *HTTPError, got %T", err)
-	}
-	if httpErr.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected status 500, got %d", httpErr.StatusCode)
+	if !IsHTTPStatus(err, http.StatusInternalServerError) {
+		t.Fatalf("expected a 500 HTTPError after retries, got %v", err)
 	}
 	if got := attempts.Load(); got != 3 {
 		t.Fatalf("expected 3 attempts, got %d", got)
@@ -396,22 +455,39 @@ func TestDoJSONRetryExhausted(t *testing.T) {
 func TestDoJSONPreservesEscapedPathSegments(t *testing.T) {
 	t.Parallel()
 
-	var gotRawPath string
+	var rec recorder
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotRawPath = r.URL.EscapedPath()
+		rec.record(r)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL + "/root")
-	client := NewClient(baseURL, "x-api-key", "test-key")
+	client := newTestClient(t, server.URL+"/root")
 
 	pth := "/v1/configs/" + url.PathEscape("a/b c")
 	if err := client.DoJSON(context.Background(), http.MethodGet, pth, nil, nil, nil); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if want := "/root/v1/configs/a%2Fb%20c"; gotRawPath != want {
-		t.Fatalf("expected request path %q, got %q", want, gotRawPath)
+	if want := "/root/v1/configs/a%2Fb%20c"; rec.last(t).RawPath != want {
+		t.Fatalf("expected request path %q, got %q", want, rec.last(t).RawPath)
+	}
+}
+
+// A path segment of "." or ".." would be collapsed by path cleaning and address a different endpoint.
+func TestDoRejectsDotSegments(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		t.Errorf("no request must be sent, got %s %s", r.Method, r.URL)
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	for _, pth := range []string{"/v1/configs/..", "/v1/configs/./publish", "/v1/configs/../rules"} {
+		_, err := client.Do(context.Background(), http.MethodGet, pth, nil, nil)
+		if err == nil || !strings.Contains(err.Error(), "is not an allowed path segment") {
+			t.Fatalf("%s: expected a dot-segment error, got %v", pth, err)
+		}
 	}
 }
 
@@ -422,31 +498,29 @@ func TestDoJSONPostRetryPolicy(t *testing.T) {
 		name         string
 		status       int
 		writeRetries bool
-		wantAttempts int32
+		wantAttempts int
 	}{
 		{"502 is not replayed", http.StatusBadGateway, false, 1},
 		{"500 is not replayed", http.StatusInternalServerError, false, 1},
+		{"503 is not replayed", http.StatusServiceUnavailable, false, 1},
 		{"504 is not replayed", http.StatusGatewayTimeout, false, 1},
 		{"429 is retried", http.StatusTooManyRequests, false, 3},
-		{"503 is retried", http.StatusServiceUnavailable, false, 3},
 		{"502 is retried when write retries are allowed", http.StatusBadGateway, true, 3},
+		{"503 is retried when write retries are allowed", http.StatusServiceUnavailable, true, 3},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			var attempts atomic.Int32
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				attempts.Add(1)
+			var rec recorder
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rec.record(r)
 				w.WriteHeader(tc.status)
 			}))
 			defer server.Close()
 
-			baseURL, _ := url.Parse(server.URL)
-			client := NewClient(
-				baseURL, "x-api-key", "test-key", WithMaxRetries(2), WithInitialBackoff(time.Millisecond),
-			)
+			client := newTestClient(t, server.URL, WithMaxRetries(2))
 			ctx := context.Background()
 			if tc.writeRetries {
 				ctx = WithWriteRetries(ctx)
@@ -456,23 +530,44 @@ func TestDoJSONPostRetryPolicy(t *testing.T) {
 			if !IsHTTPStatus(err, tc.status) {
 				t.Fatalf("expected final HTTP %d error, got %v", tc.status, err)
 			}
-			if got := attempts.Load(); got != tc.wantAttempts {
-				t.Fatalf("expected %d attempts, got %d", tc.wantAttempts, got)
+			requests := rec.all()
+			if len(requests) != tc.wantAttempts {
+				t.Fatalf("expected %d attempts, got %d", tc.wantAttempts, len(requests))
+			}
+			// Every replay must carry the full body, not the consumed reader of the first attempt.
+			for i, request := range requests {
+				if request.Body != `{"name":"x"}` {
+					t.Fatalf("attempt %d sent body %q", i+1, request.Body)
+				}
 			}
 		})
 	}
 }
 
-func TestRetryDelayCapsRetryAfter(t *testing.T) {
+func TestDoRetriesPatchAndDeleteOnServerErrors(t *testing.T) {
 	t.Parallel()
 
-	baseURL, _ := url.Parse("https://api.example.com")
-	client := NewClient(baseURL, "x-api-key", "key")
-	resp := &http.Response{Header: http.Header{}}
-	resp.Header.Set("Retry-After", "3600")
+	for _, method := range []string{http.MethodPatch, http.MethodDelete} {
+		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+			var attempts atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				if attempts.Add(1) == 1 {
+					w.WriteHeader(http.StatusBadGateway)
+					return
+				}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer server.Close()
 
-	if delay := client.retryDelay(resp, 0); delay != maxRetryAfterDelay {
-		t.Fatalf("expected Retry-After to be capped at %s, got %s", maxRetryAfterDelay, delay)
+			client := newTestClient(t, server.URL)
+			if err := client.DoJSON(context.Background(), method, "/items/1", nil, nil, nil); err != nil {
+				t.Fatalf("expected %s to recover, got %v", method, err)
+			}
+			if got := attempts.Load(); got != 2 {
+				t.Fatalf("expected 2 attempts, got %d", got)
+			}
+		})
 	}
 }
 
@@ -497,8 +592,7 @@ func TestDoJSONRetriesTransportErrorsForGetOnly(t *testing.T) {
 		var attempts atomic.Int32
 		server := newFlakyServer(&attempts)
 		defer server.Close()
-		baseURL, _ := url.Parse(server.URL)
-		client := NewClient(baseURL, "x-api-key", "key", WithInitialBackoff(time.Millisecond))
+		client := newTestClient(t, server.URL)
 		if err := client.DoJSON(context.Background(), http.MethodGet, "/poll", nil, nil, nil); err != nil {
 			t.Fatalf("expected GET to recover, got %v", err)
 		}
@@ -512,8 +606,7 @@ func TestDoJSONRetriesTransportErrorsForGetOnly(t *testing.T) {
 		var attempts atomic.Int32
 		server := newFlakyServer(&attempts)
 		defer server.Close()
-		baseURL, _ := url.Parse(server.URL)
-		client := NewClient(baseURL, "x-api-key", "key", WithInitialBackoff(time.Millisecond))
+		client := newTestClient(t, server.URL)
 		err := client.DoJSON(context.Background(), http.MethodPost, "/create", nil, map[string]string{"a": "b"}, nil)
 		if err == nil {
 			t.Fatal("expected POST transport error")
@@ -524,28 +617,133 @@ func TestDoJSONRetriesTransportErrorsForGetOnly(t *testing.T) {
 	})
 }
 
+// A request that gets no response must not print its URL: the path and query can hold a session
+// ID or an audit-log actor email.
+func TestTransportErrorsRedactThePathAndQuery(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.NotFoundHandler())
+	baseURL := server.URL
+	server.Close()
+
+	client := newTestClient(t, baseURL, WithMaxRetries(0))
+	query := url.Values{"actor": []string{"jane@example.com"}}
+	_, err := client.Do(context.Background(), http.MethodGet, "/v2/sessions/SECRET-SESSION", query, nil)
+	if err == nil {
+		t.Fatal("expected the request to fail")
+	}
+	message := err.Error()
+	for _, leaked := range []string{"SECRET-SESSION", "jane", "/v2/"} {
+		if strings.Contains(message, leaked) {
+			t.Fatalf("error reveals the request path or query: %v", err)
+		}
+	}
+	host := strings.TrimPrefix(baseURL, "http://")
+	if !strings.HasPrefix(message, "Osano API request failed: GET http://"+host+": ") {
+		t.Fatalf("unexpected transport error format: %v", err)
+	}
+}
+
+// Following a redirect would forward the API key header and replay the body to the redirect target.
+func TestDoDoesNotFollowRedirects(t *testing.T) {
+	t.Parallel()
+
+	var leaked atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		leaked.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/elsewhere", http.StatusFound)
+	}))
+	defer origin.Close()
+
+	client := newTestClient(t, origin.URL, WithHeader("x-api-key", "test-key"))
+	err := client.DoJSON(context.Background(), http.MethodPost, "/publish", nil, map[string]string{"secret": "x"}, nil)
+	if !IsHTTPStatus(err, http.StatusFound) {
+		t.Fatalf("expected the 302 to surface as an HTTPError, got %v", err)
+	}
+	if got := leaked.Load(); got != 0 {
+		t.Fatalf("the redirect target received %d request(s)", got)
+	}
+}
+
+func TestDoRejectsOversizedBodies(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"padding":"`))
+		_, _ = io.CopyN(w, strings.NewReader(strings.Repeat("x", 1<<16)), 1<<16)
+		for written := 1 << 16; written <= maxResponseBytes; written += 1 << 16 {
+			_, _ = w.Write([]byte(strings.Repeat("x", 1<<16)))
+		}
+		_, _ = w.Write([]byte(`"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL)
+	err := client.DoJSON(context.Background(), http.MethodGet, "/huge", nil, nil, &map[string]any{})
+	if err == nil || !strings.Contains(err.Error(), "response body exceeds") {
+		t.Fatalf("expected an oversized-body error, got %v", err)
+	}
+}
+
+func TestHTTPErrorTruncatesLongBodies(t *testing.T) {
+	t.Parallel()
+
+	long := strings.Repeat("y", maxErrorBodyBytes*2)
+	err := &HTTPError{StatusCode: http.StatusBadGateway, Body: long}
+	message := err.Error()
+	if len(message) > maxErrorBodyBytes+64 || !strings.HasSuffix(message, "... (truncated)") {
+		t.Fatalf("expected a truncated body, got %d bytes ending %q", len(message), message[len(message)-20:])
+	}
+	short := &HTTPError{StatusCode: http.StatusBadRequest, Body: `{"message":"bad"}`}
+	if short.Error() != `osano api error: status=400 body={"message":"bad"}` {
+		t.Fatalf("unexpected short error %q", short.Error())
+	}
+}
+
 // Osano documents URL-encoded spaces (%20) for query filters such as the config name search, while
 // url.Values encodes spaces as "+". A literal "+" must still arrive as a plus sign.
 func TestDoJSONEncodesQuerySpacesAsPercent20(t *testing.T) {
 	t.Parallel()
 
-	var rawQuery atomic.Value
+	var rec recorder
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rawQuery.Store(r.URL.RawQuery)
-		if got := r.URL.Query().Get("name"); got != "marketing site+eu" {
-			t.Errorf("expected decoded name %q, got %q", "marketing site+eu", got)
-		}
+		rec.record(r)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
 
-	baseURL, _ := url.Parse(server.URL)
-	client := NewClient(baseURL, "x-api-key", "test-key")
+	client := newTestClient(t, server.URL)
 	query := url.Values{"name": []string{"marketing site+eu"}}
 	if err := client.DoJSON(context.Background(), http.MethodGet, "/v1/configs", query, nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := rawQuery.Load(); got != "name=marketing%20site%2Beu" {
-		t.Fatalf("unexpected raw query %q", got)
+	got := rec.last(t)
+	if got.Query != "name=marketing%20site%2Beu" {
+		t.Fatalf("unexpected raw query %q", got.Query)
+	}
+	if decoded, err := url.ParseQuery(got.Query); err != nil || decoded.Get("name") != "marketing site+eu" {
+		t.Fatalf("expected the decoded name to round-trip, got %v (%v)", decoded, err)
+	}
+}
+
+func TestResponseDecode(t *testing.T) {
+	t.Parallel()
+
+	var out map[string]string
+	if err := (Response{Body: []byte(" \n")}).Decode(&out); err != nil || out != nil {
+		t.Fatalf("an empty body must leave out untouched, got %v (%v)", out, err)
+	}
+	if err := (Response{Body: []byte(`{"a":"b"}`)}).Decode(&out); err != nil || out["a"] != "b" {
+		t.Fatalf("expected the body to decode, got %v (%v)", out, err)
+	}
+	err := (Response{Body: []byte(`{not json`)}).Decode(&out)
+	if err == nil || !strings.Contains(err.Error(), "unmarshal response") {
+		t.Fatalf("expected an unmarshal error, got %v", err)
 	}
 }

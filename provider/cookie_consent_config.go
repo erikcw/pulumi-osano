@@ -1,19 +1,21 @@
-//nolint:goheader // Source-file header normalization is still in progress during alpha.
 package provider
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
-
-	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
+	"strconv"
+	"time"
 
 	p "github.com/pulumi/pulumi-go-provider"
 	"github.com/pulumi/pulumi-go-provider/infer"
+
+	osanoclient "github.com/jflavan/pulumi-osano/provider/internal/osano"
 )
 
 // CookieConsentConfig manages a Cookie Consent configuration via the Osano Customer REST API.
@@ -160,11 +162,13 @@ func (r *CookieConsentConfig) Create(
 	ctx context.Context, req infer.CreateRequest[CookieConsentConfigArgs],
 ) (infer.CreateResponse[CookieConsentConfigState], error) {
 	if req.DryRun {
-		return infer.CreateResponse[CookieConsentConfigState]{ID: "preview"}, nil
+		// The inputs are known, so a preview shows them; the server-assigned metadata stays unknown.
+		return infer.CreateResponse[CookieConsentConfigState]{
+			Output: CookieConsentConfigState{CookieConsentConfigArgs: req.Inputs},
+		}, nil
 	}
 
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.CreateResponse[CookieConsentConfigState]{}, err
 	}
@@ -172,20 +176,64 @@ func (r *CookieConsentConfig) Create(
 	body := cookieConsentConfigPayload(req.Inputs, len(req.Inputs.OrgIDs) > 0)
 
 	var out cmpConfigResponse
+	requestedAt := time.Now().Unix()
 	if err := client.DoJSON(ctx, http.MethodPost, cookieConsentConfigsPath, nil, body, &out); err != nil {
-		return infer.CreateResponse[CookieConsentConfigState]{}, err
+		// Osano cannot delete a configuration, so a create whose answer was lost must not be repeated
+		// blindly: when the POST may have been processed, adopt the configuration it created.
+		if created, found := adoptLostConfigCreate(ctx, client, req.Inputs, requestedAt, err); found {
+			p.GetLogger(ctx).Warningf(
+				"the create request for Cookie Consent config %q failed (%v), but Osano reports a matching "+
+					"configuration %s created by it; adopting it instead of creating a duplicate",
+				req.Inputs.Name, err, created.ConfigID,
+			)
+			out = created
+		} else {
+			return infer.CreateResponse[CookieConsentConfigState]{}, err
+		}
+	}
+	if out.ConfigID == "" {
+		return infer.CreateResponse[CookieConsentConfigState]{},
+			errors.New("create Cookie Consent config: Osano's response has no configId")
 	}
 
 	state := cookieConsentConfigState(req.Inputs, out)
 	return infer.CreateResponse[CookieConsentConfigState]{ID: out.ConfigID, Output: state}, nil
 }
 
+// adoptLostConfigCreate finds the configuration a failed POST may still have created. It applies
+// only when the request may have been processed (a lost response or a 5xx), never to a 4xx, and
+// adopts a configuration only when exactly one with the requested name and domains was created at
+// or after the request.
+func adoptLostConfigCreate(
+	ctx context.Context, client jsonClient, args CookieConsentConfigArgs, requestedAt int64, cause error,
+) (cmpConfigResponse, bool) {
+	var httpErr *osanoclient.HTTPError
+	if errors.As(cause, &httpErr) && httpErr.StatusCode < 500 {
+		return cmpConfigResponse{}, false
+	}
+	query := url.Values{"name": []string{args.Name}, "limit": []string{strconv.Itoa(cookieConsentConfigsPageSize)}}
+	var matches []cmpConfigResponse
+	err := paginateCustomerList(ctx, client, cookieConsentConfigsPath, query, func(page []cmpConfigResponse) bool {
+		for idx := range page {
+			candidate := &page[idx]
+			if candidate.ConfigID != "" && candidate.Name == args.Name &&
+				stringSlicesEqual(candidate.Domains, args.Domains) && int64(candidate.Created) >= requestedAt {
+				matches = append(matches, *candidate)
+			}
+		}
+		return true
+	})
+	if err != nil || len(matches) != 1 {
+		return cmpConfigResponse{}, false
+	}
+	return matches[0], true
+}
+
 // Read refreshes the tracked CookieConsentConfig from the Customer REST API.
 func (r *CookieConsentConfig) Read(
 	ctx context.Context, req infer.ReadRequest[CookieConsentConfigArgs, CookieConsentConfigState],
 ) (infer.ReadResponse[CookieConsentConfigArgs, CookieConsentConfigState], error) {
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.ReadResponse[CookieConsentConfigArgs, CookieConsentConfigState]{}, err
 	}
@@ -198,6 +246,12 @@ func (r *CookieConsentConfig) Read(
 	if err != nil {
 		return infer.ReadResponse[CookieConsentConfigArgs, CookieConsentConfigState]{},
 			fmt.Errorf("read Cookie Consent config %q: %w", req.ID, err)
+	}
+	if out.ConfigID == "" {
+		// Only a 404 means the configuration is gone. An empty ID here is a malformed answer, and
+		// reporting it as deleted would make the next update create an undeletable duplicate.
+		return infer.ReadResponse[CookieConsentConfigArgs, CookieConsentConfigState]{},
+			fmt.Errorf("read Cookie Consent config %q: Osano's response has no configId", req.ID)
 	}
 
 	state := cookieConsentConfigState(cookieConsentConfigArgsFromResponse(out, req.Inputs), out)
@@ -218,14 +272,16 @@ func (r *CookieConsentConfig) Update(
 		return infer.UpdateResponse[CookieConsentConfigState]{Output: preview}, nil
 	}
 
-	cfg := infer.GetConfig[Config](ctx)
-	client, err := customerClientFromConfig(cfg)
+	client, err := customerClient(ctx)
 	if err != nil {
 		return infer.UpdateResponse[CookieConsentConfigState]{}, err
 	}
 
 	// Send orgIds only to set or clear a managed value; Osano treats omitted and empty alike.
 	body := cookieConsentConfigPayload(req.Inputs, len(req.Inputs.OrgIDs) > 0 || len(req.State.OrgIDs) > 0)
+	// A configuration key the program stopped declaring is cleared with an explicit null. Refresh
+	// compares only declared keys, so without this the old value would survive in Osano unseen.
+	body["configuration"] = withRemovedKeysNulled(req.Inputs.Configuration, req.State.Configuration)
 
 	var out cmpConfigResponse
 	if err := client.DoJSON(
