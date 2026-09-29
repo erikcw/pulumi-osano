@@ -198,11 +198,14 @@ func (r *CookieConsentRule) Check(
 	if propertyKnown("ruleType") && args.RuleType != nil && !slices.Contains(ruleMatchTypes, *args.RuleType) {
 		fail("ruleType", "ruleType must be one of: "+strings.Join(ruleMatchTypes, ", "))
 	}
+	// Osano stores an empty description on some non-cookie rules and returns it on read, so an
+	// imported rule declares "" to match the state adoption gave it. Only a value Osano would have
+	// to honour is rejected. Same reasoning for expiry, which shares the field's shape.
 	if propertyKnown("description") && args.Description != nil {
 		if utf8.RuneCountInString(*args.Description) > 1000 {
 			fail("description", "description must be at most 1000 characters")
 		}
-		if storeTypeKnown && args.StoreType != "cookies" {
+		if storeTypeKnown && args.StoreType != "cookies" && *args.Description != "" {
 			fail("description", "description is only supported for cookies")
 		}
 	}
@@ -210,7 +213,7 @@ func (r *CookieConsentRule) Check(
 		if utf8.RuneCountInString(*args.Expiry) > 50 {
 			fail("expiry", "expiry must be at most 50 characters")
 		}
-		if storeTypeKnown && args.StoreType != "cookies" {
+		if storeTypeKnown && args.StoreType != "cookies" && *args.Expiry != "" {
 			fail("expiry", "expiry is only supported for cookies")
 		}
 	}

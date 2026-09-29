@@ -46,6 +46,22 @@ func TestCookieConsentRuleCheck(t *testing.T) {
 		}
 	})
 
+	// Osano returns description: "" and expiry: "" on some non-cookie rules, so an imported rule
+	// declares them to match its own state and Check has to accept that.
+	t.Run("empty description and expiry accepted for scripts", func(t *testing.T) {
+		values := validRuleCheckInputValues()
+		values["storeType"] = property.New("scripts")
+		values["description"] = property.New("")
+		values["expiry"] = property.New("")
+		resp, err := resource.Check(ctx, infer.CheckRequest{NewInputs: property.NewMap(values)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(resp.Failures) != 0 {
+			t.Fatalf("expected no failures, got: %#v", resp.Failures)
+		}
+	})
+
 	for _, ruleType := range []string{
 		"FILENAME", "DOMAIN", "PATH", "REGEXP", "STARTS_WITH", "ENDS_WITH", "CONTAINS", "EXACT_MATCH",
 	} {

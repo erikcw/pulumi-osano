@@ -44,6 +44,8 @@ func TestValidateCookieConsentConfiguration(t *testing.T) {
 			},
 		},
 		"cleared variant mapping": with("variantMapping", map[string]any{}),
+		// Osano returns [] for a configuration with no additional links, so it has to round-trip.
+		"no additional links": with("additionalLinks", []any{}),
 	}
 	for name, configuration := range valid {
 		t.Run("accepts "+name, func(t *testing.T) {
@@ -76,6 +78,7 @@ func TestValidateCookieConsentConfiguration(t *testing.T) {
 			[]any{"imprint", "/a"}, []any{"termsOfUse", "/b"}, []any{"securityPolicy", "/c"},
 		}), "configuration.additionalLinks"},
 		{"unknown additional link text", with("additionalLinks", []any{[]any{"home", "/"}}), "configuration.additionalLinks"},
+		{"non-list additional links", with("additionalLinks", "/imprint"), "configuration.additionalLinks"},
 		{"additional link repeating policyLinkText", map[string]any{
 			"storagePolicyHref": "/privacy", "policyLinkText": "privacyPolicy",
 			"additionalLinks": []any{[]any{"privacyPolicy", "/privacy"}},
