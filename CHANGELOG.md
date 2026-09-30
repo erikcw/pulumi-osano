@@ -10,6 +10,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Until 1.0
 
 ### Fixed
 
+- `pulumi import` no longer adopts values that the next `pulumi preview` rejects. A
+  `CookieConsentRule` import leaves `description` and `expiry` unset on rules other than cookies,
+  where Osano reports `description: ""` on some script rules, and a `CookieConsentConfig` import
+  leaves out the `additionalLinks: []` Osano reports for a configuration without additional
+  links. Previously the preview after importing such a rule failed with `description is only
+  supported for cookies`, and the first change to such a configuration failed with
+  `configuration.additionalLinks must be a list of one or two [text, url] pairs`. For a stack
+  imported with an earlier version, remove these values from the program; the next `pulumi up`
+  updates each affected resource once and then shows no changes.
 - The attested NuGet package is attached to each GitHub release as
   `Community.Pulumi.Osano.X.Y.Z.nupkg`, because nuget.org re-signs the package it serves and that
   copy no longer matches the attested digest. The `0.3.0` release has the file attached by hand.

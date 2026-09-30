@@ -43,9 +43,8 @@ func TestValidateCookieConsentConfiguration(t *testing.T) {
 				"behavior":       "fallbackToOsano",
 			},
 		},
-		"cleared variant mapping": with("variantMapping", map[string]any{}),
-		// Osano returns [] for a configuration with no additional links, so it has to round-trip.
-		"no additional links": with("additionalLinks", []any{}),
+		"cleared variant mapping":  with("variantMapping", map[string]any{}),
+		"cleared additional links": with("additionalLinks", nil),
 	}
 	for name, configuration := range valid {
 		t.Run("accepts "+name, func(t *testing.T) {
@@ -74,6 +73,8 @@ func TestValidateCookieConsentConfiguration(t *testing.T) {
 			"configuration.doNotSellCategories",
 		},
 		{"do-not-sell without categories", with("enableDoNotSell", true), "configuration.doNotSellCategories"},
+		// Osano's spec requires at least one link on write; import leaves out the [] it reports.
+		{"empty additional links", with("additionalLinks", []any{}), "configuration.additionalLinks"},
 		{"too many additional links", with("additionalLinks", []any{
 			[]any{"imprint", "/a"}, []any{"termsOfUse", "/b"}, []any{"securityPolicy", "/c"},
 		}), "configuration.additionalLinks"},

@@ -232,11 +232,9 @@ func validateStringList(value any, allowed []string) []string {
 }
 
 func validateAdditionalLinks(value any, policyLinkText string) []string {
-	// An empty list is what Osano returns for a configuration carrying no additional links, so it
-	// has to round-trip through adoption. The upper bound is Osano's own limit and still applies.
 	links, ok := value.([]any)
-	if !ok || len(links) > 2 {
-		return []string{"must be a list of at most two [text, url] pairs"}
+	if !ok || len(links) < 1 || len(links) > 2 {
+		return []string{"must be a list of one or two [text, url] pairs; to show none, leave it out or set it to null"}
 	}
 	var messages []string
 	for idx, link := range links {

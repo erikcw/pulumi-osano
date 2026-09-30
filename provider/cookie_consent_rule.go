@@ -198,14 +198,11 @@ func (r *CookieConsentRule) Check(
 	if propertyKnown("ruleType") && args.RuleType != nil && !slices.Contains(ruleMatchTypes, *args.RuleType) {
 		fail("ruleType", "ruleType must be one of: "+strings.Join(ruleMatchTypes, ", "))
 	}
-	// Osano stores an empty description on some non-cookie rules and returns it on read, so an
-	// imported rule declares "" to match the state adoption gave it. Only a value Osano would have
-	// to honour is rejected. Same reasoning for expiry, which shares the field's shape.
 	if propertyKnown("description") && args.Description != nil {
 		if utf8.RuneCountInString(*args.Description) > 1000 {
 			fail("description", "description must be at most 1000 characters")
 		}
-		if storeTypeKnown && args.StoreType != "cookies" && *args.Description != "" {
+		if storeTypeKnown && args.StoreType != "cookies" {
 			fail("description", "description is only supported for cookies")
 		}
 	}
@@ -213,7 +210,7 @@ func (r *CookieConsentRule) Check(
 		if utf8.RuneCountInString(*args.Expiry) > 50 {
 			fail("expiry", "expiry must be at most 50 characters")
 		}
-		if storeTypeKnown && args.StoreType != "cookies" && *args.Expiry != "" {
+		if storeTypeKnown && args.StoreType != "cookies" {
 			fail("expiry", "expiry is only supported for cookies")
 		}
 	}
@@ -433,7 +430,7 @@ func cookieConsentRuleState(args CookieConsentRuleArgs, resp cmpRuleResponse) Co
 // declared inputs) adopts everything Osano reports, including the store type mapped from the
 // response type. A refresh keeps the declared identity, adopts the required fields so drift is
 // visible, and adopts optional fields only where the program declares them; unset optional fields
-// stay unmanaged.
+// stay unmanaged, as do description and expiry on rules other than cookies.
 func cookieConsentRuleArgsFromResponse(
 	resp cmpRuleResponse, configID string, declared CookieConsentRuleArgs,
 ) (CookieConsentRuleArgs, error) {
@@ -464,8 +461,13 @@ func cookieConsentRuleArgsFromResponse(
 	args.Title = adopt(declared.Title, resp.Title)
 	args.VendorName = adopt(declared.VendorName, resp.VendorName)
 	args.RuleType = adopt(declared.RuleType, resp.RuleType)
-	args.Description = adopt(declared.Description, resp.Description)
-	args.Expiry = adopt(declared.Expiry, resp.Expiry)
+	// description and expiry apply only to cookies: the payload never sends them for other store
+	// types and Check rejects them there. Osano still reports description: "" on some script rules,
+	// so adopting it would import a value the program cannot declare.
+	if args.StoreType == "cookies" {
+		args.Description = adopt(declared.Description, resp.Description)
+		args.Expiry = adopt(declared.Expiry, resp.Expiry)
+	}
 	return args, nil
 }
 

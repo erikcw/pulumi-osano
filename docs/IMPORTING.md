@@ -40,11 +40,15 @@ pulumi import osano:index:CookieConsentPublication publication <configId>
 ```
 
 A configuration import reads the remote configuration into state. It does not
-publish. A rule import requires the composite `<configId>/<ruleId>` identity
-and reconstructs `storeType` from Osano's rule type (`cookie` becomes `cookies`,
+publish. An empty `additionalLinks` list is left out: Osano reports `[]` for a
+configuration without additional links, but its API spec requires at least one
+link on write. A rule import requires the composite `<configId>/<ruleId>`
+identity and reconstructs `storeType` from Osano's rule type (`cookie` becomes `cookies`,
 `script` becomes `scripts`, `iframe` becomes `iframes`). Optional rule fields
 that the program does not declare stay unmanaged: they are not read into state,
-and later updates leave them as they are in Osano.
+and later updates leave them as they are in Osano. `description` and `expiry`
+apply only to cookie rules, so they are never read into state for other rules,
+even though Osano reports `description: ""` on some script rules.
 
 A publication import also performs only a read and never queues publication.
 Because Osano cannot reconstruct the caller's prior desired-state token, the

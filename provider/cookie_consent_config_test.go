@@ -488,3 +488,44 @@ func baseConfigArgs() CookieConsentConfigArgs {
 func baseConfigState() CookieConsentConfigState {
 	return CookieConsentConfigState{CookieConsentConfigArgs: baseConfigArgs(), ConfigID: "config-123"}
 }
+
+// Osano reports additionalLinks: [] for a configuration without additional links, which its spec
+// rejects on write. An import leaves it out, so the first change to the configuration passes Check.
+func TestCookieConsentConfigArgsFromResponseOmitsEmptyAdditionalLinks(t *testing.T) {
+	t.Parallel()
+
+	resp := cmpConfigResponseFixture()
+	resp.Configuration["additionalLinks"] = []any{}
+
+	t.Run("import", func(t *testing.T) {
+		args := cookieConsentConfigArgsFromResponse(resp, CookieConsentConfigArgs{})
+		if _, present := args.Configuration["additionalLinks"]; present {
+			t.Fatalf("expected an empty additionalLinks to be left out, got %#v", args.Configuration)
+		}
+		if args.Configuration["flag"] != true {
+			t.Fatalf("expected the other keys to be adopted, got %#v", args.Configuration)
+		}
+		if _, present := resp.Configuration["additionalLinks"]; !present {
+			t.Fatal("the response must not be modified")
+		}
+	})
+
+	t.Run("import keeps links that are present", func(t *testing.T) {
+		linked := cmpConfigResponseFixture()
+		linked.Configuration["additionalLinks"] = []any{[]any{"imprint", "/imprint"}}
+		args := cookieConsentConfigArgsFromResponse(linked, CookieConsentConfigArgs{})
+		if !reflect.DeepEqual(args.Configuration["additionalLinks"], linked.Configuration["additionalLinks"]) {
+			t.Fatalf("expected additionalLinks to be adopted, got %#v", args.Configuration)
+		}
+	})
+
+	// A refresh surfaces links cleared in the dashboard as drift from the declared ones.
+	t.Run("refresh of declared links", func(t *testing.T) {
+		declared := baseConfigArgs()
+		declared.Configuration["additionalLinks"] = []any{[]any{"imprint", "/imprint"}}
+		args := cookieConsentConfigArgsFromResponse(resp, declared)
+		if links, isList := args.Configuration["additionalLinks"].([]any); !isList || len(links) != 0 {
+			t.Fatalf("expected refresh to adopt the empty list, got %#v", args.Configuration)
+		}
+	})
+}

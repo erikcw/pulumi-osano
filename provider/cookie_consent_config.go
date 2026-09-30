@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -414,9 +415,10 @@ func cookieConsentConfigState(args CookieConsentConfigArgs, resp cmpConfigRespon
 }
 
 // cookieConsentConfigArgsFromResponse derives refreshed inputs from a config read. An import (no
-// declared inputs) adopts everything Osano reports. A refresh adopts the scalar fields so drift is
-// visible, but projects the configuration object onto the keys the program declares: server-added
-// defaults stay out of state, and a declared key Osano omits keeps its declared value.
+// declared inputs) adopts everything Osano reports except an empty additionalLinks. A refresh
+// adopts the scalar fields so drift is visible, but projects the configuration object onto the
+// keys the program declares: server-added defaults stay out of state, and a declared key Osano
+// omits keeps its declared value.
 func cookieConsentConfigArgsFromResponse(
 	resp cmpConfigResponse, declared CookieConsentConfigArgs,
 ) CookieConsentConfigArgs {
@@ -429,6 +431,12 @@ func cookieConsentConfigArgsFromResponse(
 	}
 	if declared.Configuration != nil {
 		args.Configuration = projectConfiguration(resp.Configuration, declared.Configuration)
+	} else if links, isList := resp.Configuration["additionalLinks"].([]any); isList && len(links) == 0 {
+		// Osano reports [] for a configuration without additional links, but its spec requires at
+		// least one link on write, so adopting [] would import a value Check rejects once the
+		// configuration next changes. Leaving the key out means the same thing.
+		args.Configuration = maps.Clone(resp.Configuration)
+		delete(args.Configuration, "additionalLinks")
 	}
 	return args
 }
