@@ -111,7 +111,7 @@ failure names the property, for example
 | `timeoutSeconds` | A whole number |
 | `iframeBlocking`, `localStorageBlocking` | `""`, `debug`, `permissive`, or `production` |
 | `doNotSellCategories` | A list of `MARKETING`, `ANALYTICS`, `PERSONALIZATION`; at least one when `enableDoNotSell` is `true` |
-| `additionalLinks` | One or two `[text, url]` pairs; `text` is a documented link ID (for example `privacyPolicy` or `termsOfService`) and differs from `policyLinkText`. For no additional links, leave the key out or set it to `null`, not `[]` |
+| `additionalLinks` | One or two `[text, url]` pairs; `text` is a documented link ID (for example `privacyPolicy` or `termsOfService`) and differs from `policyLinkText`. For no additional links, leave the key out rather than setting `[]` |
 | `variantMapping` | `{}`, or `{ byJurisdiction: { "us" or "us-xx": "one" or "three" }, behavior: "fallbackToOsano" }` |
 | `palette.dialogType` | `bar` or `box` (every palette value may also be `null`, which removes it) |
 | `palette.widgetPosition`, `infoDialogPosition`, `optOutWidgetPosition` | `right` or `left` |

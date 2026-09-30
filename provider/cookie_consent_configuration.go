@@ -234,7 +234,7 @@ func validateStringList(value any, allowed []string) []string {
 func validateAdditionalLinks(value any, policyLinkText string) []string {
 	links, ok := value.([]any)
 	if !ok || len(links) < 1 || len(links) > 2 {
-		return []string{"must be a list of one or two [text, url] pairs; to show none, leave it out or set it to null"}
+		return []string{"must be a list of one or two [text, url] pairs; to show none, leave the key out"}
 	}
 	var messages []string
 	for idx, link := range links {
